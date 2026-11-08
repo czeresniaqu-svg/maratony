@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maraton Raidów – NosTale</title>
+<style>
+:root{--bg:#14161c;--pan:#1d2029;--pan2:#262a36;--tx:#e6e8ee;--mut:#9aa1b2;--acc:#e0a63a;--ok:#4caf7a;--bad:#d9534f;
+--fire:#e2653c;--water:#3f8fe0;--light:#e8c74a;--shadow:#9a6ad8;--none:#888}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:12px 18px;background:var(--pan);border-bottom:1px solid #333a48;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;color:var(--acc)}
+.lang{display:flex;gap:4px}.lang button{background:var(--pan2);color:var(--mut);border:1px solid #394055;border-radius:6px;padding:5px 9px;cursor:pointer;font:inherit;font-size:13px}
+.lang button.on{color:var(--tx);border-color:var(--acc)}
+nav button{background:none;border:0;color:var(--mut);padding:8px 12px;cursor:pointer;font-size:14px;border-radius:6px}
+nav button.on{background:var(--pan2);color:var(--tx)}
+main{padding:16px 18px;max-width:1300px;margin:auto}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--pan);border:1px solid #2c3140;border-radius:10px;padding:14px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px}h3{font-size:14px;margin:12px 0 6px;color:var(--acc)}
+input,select,textarea{background:var(--pan2);color:var(--tx);border:1px solid #394055;border-radius:6px;padding:6px 8px;font:inherit}
+textarea{width:100%;min-height:70px}
+button.b{background:var(--acc);color:#1a1a1a;border:0;border-radius:6px;padding:7px 12px;font-weight:600;cursor:pointer}
+button.g{background:var(--pan2);color:var(--tx);border:1px solid #394055;border-radius:6px;padding:6px 10px;cursor:pointer}
+button.x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #2c3140;vertical-align:middle}
+th{color:var(--mut);font-weight:500;font-size:12px;text-transform:uppercase}
+.el{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;color:#111;font-weight:600}
+.el-fire{background:var(--fire)}.el-water{background:var(--water)}.el-light{background:var(--light)}.el-shadow{background:var(--shadow)}.el-none{background:var(--none)}
+.psp{display:inline-block;border-radius:4px;padding:0 6px;margin:1px;font-size:12px;font-weight:700;color:#111}
+.psp-ele{background:#5ec4b6}.psp-pri{background:#e58ad1}.psp-sec{background:#b6c25e}
+.tag{display:inline-block;background:#33394a;border-radius:4px;padding:0 6px;margin:1px;font-size:12px}
+.mut{color:var(--mut)}.small{font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.team h2{display:flex;justify-content:space-between}
+.empty{color:var(--bad);font-style:italic}
+.chk label{margin-right:10px;white-space:nowrap;display:inline-block}
+.scroll{overflow-x:auto}
+.pick{display:inline-flex;align-items:center;gap:6px;margin:4px;padding:8px 12px;border-radius:8px;border:1px solid #394055;background:var(--pan2);color:var(--tx);cursor:pointer;font:inherit;min-width:130px}
+.pick.on{border-color:var(--acc);background:#3a3220}.pick .medal{font-size:18px;width:22px}
+.livecard{border:2px solid var(--ok)}
+.warn{background:#3a2f17;border:1px solid #6b5422;padding:8px 10px;border-radius:6px;margin-bottom:10px}
+tr.off td{opacity:.4}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ Maraton Raidów</h1>
+  <nav>
+    <button data-t="players" class="on">Gracze</button>
+    <button data-t="assign">Skład</button>
+    <button data-t="raids">Rajdy</button>
+    <button data-t="sps">Baza SP / PSP</button>
+    <button data-t="history">Historia</button>
+    <button data-t="data">Zapis / Import</button>
+  </nav>
+  <div class="lang" style="margin-left:auto"><button data-lang="pl" title="Polski">🇵🇱 PL</button><button data-lang="en" title="English">🇬🇧 EN</button></div>
+</header>
+<main>
+
+<!-- ============ GRACZE ============ -->
+<section id="players" class="tab on">
+  <div class="card">
+    <h2>Szybkie dodawanie</h2>
+    <p class="mut small">Jedna linia = jeden gracz. Format: <b>Nick, SP główne, SP zapasowe..., psp: …</b><br>
+    Przykład: <code>Iorweth, dark gunner, scout, psp: ele</code> (pamiętaj: gracz bierze na rajd 1 PSP; jeśli ma kilka, wpisz wszystkie — program wybierze)<br>
+    PSP można wpisać jako grupę (<b>ele / pri / sec</b>, liczby <b>1/2/3</b>, <b>all</b> = wszystkie) albo nazwą karty (np. <i>freya, perti, harlequin</i>). Wielkość liter i literówki nie szkodzą. Opcjonalnie <code>żywioł: cień</code> nadpisuje żywioł gracza.</p>
+    <textarea id="quick" placeholder="Iorweth, dark gunner, seer, psp: pri, secondary, ele&#10;Geralt, berserker, renegade, psp: freya&#10;Kot, assassin, psp: perti"></textarea>
+    <div class="row" style="margin-top:8px"><button class="b" id="quickAdd">Dodaj</button><span id="quickMsg" class="small mut"></span></div>
+  </div>
+  <div class="card">
+    <h2>📷 Wklej screena wiadomości z gry</h2>
+    <p class="mut small">Zrób screena wiadomości (np. <code>Nick: serk 1 2 3 jinn</code>) i wklej go tutaj <b>Ctrl+V</b>, przeciągnij plik albo wybierz go z dysku. Liczby <b>1 / 2 / 3 = PRI / SEC / ELE</b>, <b>all</b> = wszystkie PSP. Na screenie może być cały czat — program wybierze tylko zapisy na rajd, a resztę (spam) pominie.
+    Przy pierwszym użyciu strona pobiera moduł do odczytu tekstu (potrzebny internet, ~10 MB, potem z pamięci przeglądarki).</p>
+    <div id="ocrDrop" tabindex="0" style="border:2px dashed #46506a;border-radius:10px;padding:18px;text-align:center;cursor:pointer">
+      <b>Kliknij tu i wciśnij Ctrl+V</b> <span class="mut">albo przeciągnij obrazek</span> &nbsp; <input type="file" id="ocrFile" accept="image/*">
+    </div>
+    <div class="row" style="margin-top:8px"><img id="ocrImg" style="max-width:100%;max-height:140px;display:none;border-radius:6px"></div>
+    <div id="ocrStatus" class="small mut"></div>
+    <textarea id="ocrText" placeholder="Tu pojawi się odczytany tekst — popraw go, jeśli coś źle odczytało, i kliknij „Rozpoznaj”." style="display:none"></textarea>
+    <div class="row" id="ocrBtns" style="display:none;margin-top:6px"><button class="g" id="ocrParse">Rozpoznaj graczy z tekstu</button></div>
+    <div id="ocrPreview"></div>
+  </div>
+  <div class="card">
+    <h2>Gracze <span id="pcount" class="mut small"></span></h2>
+    <div class="row"><label><b>Rajd, pod który zapisujesz:</b> <select id="praid"></select></label><span id="praidNote" class="mut small"></span></div>
+    <div class="row">
+      <input id="pfilter" placeholder="Szukaj...">
+      <button class="g" id="allOn">Wszyscy obecni</button>
+      <button class="g" id="allOff">Nikt obecny</button>
+      <button class="g" id="addEmpty">+ Pusty gracz</button>
+      <button class="g" id="clearList" title="Nowy rajd: czyści listę. Gracze idą do archiwum (historia zostaje), a po ponownym zapisie wracają z SP/PSP.">🧹 Wyczyść listę (nowy rajd)</button>
+      <label class="small mut"><input type="checkbox" id="pArch"> pokaż archiwum (<span id="pArchN">0</span>)</label>
+      <button class="g" id="fixNicks" title="Np. „Yarisu serk pri” → nick Yarisu, SP Berserker">Wyciągnij SP z nicków</button>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Obecny</th><th>Nick</th><th>Klasa</th><th>SP główne</th><th>SP drugie</th><th>Żywioł</th><th>PSP debuffy</th><th>Pasuje na (w tym rajdzie)</th><th>Tagi gracza</th><th></th></tr></thead>
+    <tbody id="ptable"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ============ SKŁAD ============ -->
+<section id="assign" class="tab">
+  <div class="card">
+    <div class="row">
+      <label>Rajd: <select id="araid"></select></label>
+      <label>Liczba drużyn: <input id="ateams" type="number" min="1" value="1" style="width:60px"></label>
+      <label class="small"><input type="checkbox" id="aauto" checked> auto (ile się da z obecnych)</label>
+      <button class="b" id="arun">Ułóż skład</button>
+      <button class="g" id="acopy">Kopiuj na Discorda</button>
+      <button class="b" id="asave" style="background:var(--ok)">▶ Start maratonu</button>
+      <label class="small" title="Gracze z lepszymi wynikami (top 3, oceny) mają pierwszeństwo, gdy chętnych jest więcej niż miejsc"><input type="checkbox" id="ahist"> pierwszeństwo wg historii</label>
+    </div>
+    <div id="ainfo" class="small mut"></div>
+  </div>
+  <div id="live"></div>
+  <div id="aout"></div>
+</section>
+
+<!-- ============ RAJDY ============ -->
+<section id="raids" class="tab">
+  <div class="card">
+    <div class="warn small">Składy domyślne to szablony do uzupełnienia — sprawdź na wiki Olympusa liczbę graczy, potrzebne role i żywioł bossa i popraw tutaj. Zapisuje się automatycznie.</div>
+    <div class="row"><select id="rsel"></select><button class="g" id="rnew">+ Nowy rajd</button><button class="g" id="rdup">Duplikuj</button><button class="x" id="rdel" title="Usuń rajd">🗑</button></div>
+    <div id="redit"></div>
+  </div>
+</section>
+
+<!-- ============ SP ============ -->
+<section id="sps" class="tab">
+  <div class="card">
+    <div class="warn small">Żywioły i role SP wpisane z pamięci — zweryfikuj z wiki Olympusa. Tagi ról (np. <b>dd, support, debuff, tank, niewidka</b>) decydują, na jakie role w rajdzie dany SP się nadaje.</div>
+    <div id="pspInfo" style="margin-bottom:12px"></div>
+    <div class="row"><button class="g" id="spAdd">+ Dodaj SP</button></div>
+    <table><thead><tr><th>Nazwa</th><th>Klasa</th><th>Żywioł</th><th>Tagi ról (po przecinku)</th><th>Aliasy (skróty do szybkiego dodawania)</th><th></th></tr></thead>
+    <tbody id="sptable"></tbody></table>
+  </div>
+</section>
+
+<!-- ============ DANE ============ -->
+<section id="history" class="tab">
+  <div class="card">
+    <h2>Baza graczy — kto jest naprawdę dobry</h2>
+    <p class="mut small">Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. Kliknij nagłówek, by sortować.</p>
+    <div class="scroll"><table id="rank"></table></div>
+  </div>
+  <div id="sessions"></div>
+</section>
+
+<section id="data" class="tab">
+  <div class="card">
+    <h2>Zapis i import</h2>
+    <p class="mut small">Wszystko zapisuje się automatycznie w przeglądarce. Eksport pozwala przenieść dane na inny komputer albo zrobić kopię.</p>
+    <div class="row"><button class="b" id="exp">Eksportuj do pliku</button><button class="g" id="reset">Przywróć domyślne SP, PSP i rajdy</button></div>
+    <h3>Import</h3>
+    <div class="row"><label><input type="radio" name="impMode" value="merge" checked> <b>Połącz z moimi danymi</b></label>
+      <span class="mut small">— historia się sumuje (np. plik od kogoś z gildii), gracze łączeni po nicku, twoje rajdy i bazy zostają. Ten sam plik dwa razy nie podwoi wyników.</span></div>
+    <div class="row"><label><input type="radio" name="impMode" value="replace"> <b>Zastąp wszystko</b></label>
+      <span class="mut small">— np. przeniesienie na nowy komputer (twoje obecne dane znikną).</span></div>
+    <div class="row"><input type="file" id="imp" accept=".json"><span id="impMsg" class="small"></span></div>
+  </div>
+</section>
+</main>
+
+<script>
+/* ===================== DANE DOMYŚLNE ===================== */
+const ELS = {fire:'Ogień',water:'Woda',light:'Światło',shadow:'Cień',none:'Brak'};
+const EL_ALIAS = {ogien:'fire','ogień':'fire',fire:'fire',fajer:'fire',woda:'water',water:'water',wodny:'water',
+  swiatlo:'light','światło':'light',light:'light',lajt:'light',cien:'shadow','cień':'shadow',shadow:'shadow',dark:'shadow',mrok:'shadow',szadow:'shadow',brak:'none',none:'none'};
+const CLASSES = ['Wojownik','Łucznik','Mag','Mistrz Walki'];
+// Grupy debuffów z kart partnera (PSP)
+const DEFAULT_PSP = {
+  ele:{label:'ELE',must:true,color:'#5ec4b6',desc:'Wszystkie odporności na żywioły −20',cards:['Amon','Freya','Archangel Lucifer'],
+       alias:['3','ele','elem','elemental','res','resy','amon','freya','lucifer','archangel']},
+  pri:{label:'PRI',must:true,color:'#e58ad1',desc:'100% szansy: +20% otrzymywanych obrażeń (magia/dystans/wręcz), uniki −200',cards:['One-Winged Perti','Sheriff Chloe','Laurena'],
+       alias:['1','pri','prim','primary','perti','chloe','sheriff','laurena']},
+  sec:{label:'SEC',must:true,color:'#b6c25e',desc:'25% szansy: +20% otrzymywanych obrażeń (magia/dystans/wręcz)',cards:['Palina Puppet Master','Daniel Ducats','Harlequin'],
+       alias:['2','sec','secondary','second','sek','palina','puppet','daniel','ducats','harlequin','arlekin']},
+  akh:{label:'Akhenaton (pies)',extra:true,color:'#d9b36a',desc:'Curse of the Pharaoh: 100% szansy +10% otrzymywanych obrażeń z żywiołów, płaskie obrażenia żywiołów celu −10%, co 2 s HP −(poziom×8)',
+       cards:['Akhenaton the Cursed Pharaoh'],alias:['akhenaton','akh','dog','pies','piesek','pharaoh','faraon','curse']},
+  hip:{label:'Lucy / Cheongbi',extra:true,color:'#e0925a',desc:'Hip Swing: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +5% (Horned Club ma ten sam efekt)',
+       cards:['Lucy (Hip Swing)','Cheongbi','Horned Club (S)'],alias:['lucy','cheongbi','cheong','hip','hipswing','hip swing','horned','hornedclub','horned club','club']},
+  jinn:{label:'Jinn',color:'#7fb2ff',desc:'Tylko MID — zbiera moby (nie jest debuffem)',cards:['Jinn'],alias:['jinn','dzin','dżin','djinn','jin']},
+  shadowfall:{label:'Ragnar / Nezarun',extra:true,color:'#8c7bd6',desc:'Shadowfall: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +10%',
+       cards:['Ragnar (Shadowfall)','Nezarun'],alias:['ragnar','nezarun','neza','shadowfall','shadow fall','sf','viking','czaszka','skull']},
+};
+let PSP;
+function matchPsp(txt){
+  const t=norm(txt);if(!t)return null;
+  for(const [k,v] of Object.entries(PSP)){
+    if(v.alias.map(norm).includes(t)||norm(v.label)===t||v.cards.some(c=>norm(c)===t))return k;
+  }
+  for(const [k,v] of Object.entries(PSP)){
+    if([...v.alias.map(norm),...v.cards.map(norm)].some(a=>a.length>=4&&(lev(t,a)<=1||(t.length>=4&&a.startsWith(t)))))return k;
+  }
+  return null;
+}
+// Tłumaczenie tekstu na Discorda (EN). Nieznane nazwy zostają bez zmian.
+const EN={'SKŁAD':'TEAM','DŹWIGNIE':'LEVERS','Dźwignia':'Lever','Debuff dod.':'Extra debuff','Zwiadowca':'Scout','Damage Dealer':'Damage Dealer',
+  'Break Armor':'Break Armor','Support':'Support','Akhenaton (pies)':'Akhenaton','Pozycja':'Position','Rola':'Role'};
+const en=t=>EN[t]??t;
+function realPsp(p,role){return role.psp==='+extra'?(p.psp.find(k=>PSP[k]?.extra)||''):role.psp;}
+function pspBadge(k){if(k==='+extra')return '<span class="psp" style="background:#ccc">dodatkowy</span>';const v=PSP[k];if(!v)return '';return `<span class="psp" style="background:${esc(v.color||'#aaa')}" title="${esc(v.cards.join(', ')+' — '+v.desc)}">${esc(v.label)}</span>`;}
+
+const DEFAULT_SPS = [
+ // Wojownik
+ ['Warrior','Wojownik','fire','dd,tank'],['Ninja','Wojownik','water','dd'],['Crusader','Wojownik','light','support,tank'],
+ ['Berserker','Wojownik','shadow','dd'],['Gladiator','Wojownik','fire','dd'],['Battle Monk','Wojownik','water','dd'],
+ ['Death Reaper','Wojownik','shadow','dd'],['Renegade','Wojownik','light','dd'],['Waterfall Berserker','Wojownik','water','dd'],
+ ['Dragon Knight','Wojownik','fire','dd'],
+ // Łucznik
+ ['Ranger','Łucznik','water','dd'],['Assassin','Łucznik','shadow','dd,niewidka'],['Destroyer','Łucznik','fire','dd'],
+ ['Wild Keeper','Łucznik','light','support,dd'],['Fire Cannoneer','Łucznik','fire','dd'],['Scout','Łucznik','water','dd,niewidka'],
+ ['Demon Hunter','Łucznik','shadow','dd,debuff'],['Avenging Angel','Łucznik','light','dd'],['Sunchaser','Łucznik','fire','dd'],
+ ['Thunderer','Łucznik','light','dd'],['Fog Hunter','Łucznik','water','dd,niewidka'],
+ // Mag
+ ['Red Mage','Mag','fire','dd'],['Holy Mage','Mag','light','support'],['Blue Mage','Mag','water','dd'],
+ ['Dark Gunner','Mag','shadow','dd'],['Volcano','Mag','fire','dd'],['Tide Lord','Mag','water','dd'],
+ ['Seer','Mag','shadow','debuff,dd'],['Archmage','Mag','light','dd,support'],['Voodoo Priest','Mag','shadow','debuff,dd'],
+ ['Gravity','Mag','light','dd'],
+ // Mistrz Walki
+ ['Draconic Fist','Mistrz Walki','fire','dd'],['Mystic Arts','Mistrz Walki','water','support,dd'],
+ ['Master Wolf','Mistrz Walki','shadow','dd'],['Demon Warrior','Mistrz Walki','light','dd,niewidka'],['Flame Druid','Mistrz Walki','fire','dd'],
+].map(([name,cls,el,tags])=>({id:slug(name),name,cls,el,tags:tags.split(','),aliases:defaultAliases(name)}));
+
+function defaultAliases(n){
+  const w=n.toLowerCase().split(' ');
+  const a=[];
+  if(w.length>1&&n!=='Battle Monk')a.push(w.map(x=>x[0]).join(''));       // "dark gunner" -> dg
+  const extra={
+   'Red Mage':['red','rm'],'Blue Mage':['blue'],'Holy Mage':['holy','hm'],'Dark Gunner':['dg','gunner'],
+   'Archmage':['am','arch'],'Tide Lord':['tl','tide'],'Volcano':['vc','volc','wulkan'],'Seer':['seer'],'Voodoo Priest':['voodoo','vp'],'Gravity':['grav'],
+   'Warrior':['war'],'Crusader':['crus','krzyżowiec'],'Berserker':['serk','zerk','bers','berek','berser'],'Ninja':['nin'],'Gladiator':['glad'],
+   'Battle Monk':['monk'],'Death Reaper':['reaper','dr'],'Renegade':['rene','ren'],'Waterfall Berserker':['wfb','waterfall','wf'],'Dragon Knight':['dk'],
+   'Ranger':['rang'],'Assassin':['sin','assasin','asasin','asas'],'Destroyer':['des','destro'],'Wild Keeper':['wk'],'Fire Cannoneer':['fc','canon','cannon'],
+   'Scout':['scout','skaut'],'Demon Hunter':['dh'],'Avenging Angel':['aa','angel','avening angel'],'Sunchaser':['sun'],'Thunderer':['thunder'],'Fog Hunter':['fog','fh','foghunter'],
+   'Draconic Fist':['draco','df'],'Mystic Arts':['mystic','ma'],'Master Wolf':['wolf','mw'],'Demon Warrior':['dw','demon war'],'Flame Druid':['druid','fd']};
+  return a.concat(extra[n]||[]);
+}
+
+const armaRoles=()=>[
+  {group:'',name:'Damage Dealer',count:12,tags:['dd'],sps:[],psp:''},
+  {group:'START',name:'PRI',count:1,tags:[],sps:['berserker'],psp:'pri',task:'BA'},
+  {group:'START',name:'ELE',count:1,tags:[],sps:[],spsPref:['dark-gunner'],psp:'ele',task:''},
+  {group:'START',name:'SEC',count:1,tags:[],sps:[],spsPref:['dark-gunner'],psp:'sec',task:''},
+  {group:'MID',name:'PRI',count:1,tags:[],sps:[],psp:'pri',task:''},
+  {group:'MID',name:'ELE',count:1,tags:[],sps:[],psp:'ele',task:''},
+  {group:'MID',name:'SEC',count:1,tags:[],sps:[],psp:'sec',task:''},
+  {group:'MID',name:'Jinn',count:1,tags:[],sps:[],psp:'jinn',task:''},
+  {group:'MID',name:'Debuff dod.',count:1,tags:[],sps:[],psp:'+extra',task:'',optional:true},
+  {group:'BOSS',name:'PRI',count:1,tags:[],sps:[],psp:'pri',task:''},
+  {group:'BOSS',name:'ELE',count:1,tags:[],sps:[],psp:'ele',task:''},
+  {group:'BOSS',name:'SEC',count:1,tags:[],sps:[],psp:'sec',task:''},
+  {group:'BOSS',name:'Debuff dod.',count:1,tags:[],sps:[],psp:'+extra',task:'',optional:true},
+  {group:'BOSS',name:'Break Armor',count:1,tags:[],sps:['berserker'],psp:'',task:'BA'},
+  {group:'DŹWIGNIE',name:'Dźwignia',count:1,tags:['niewidka'],sps:[],spsFallback:['dark-gunner'],psp:'',task:'L1',pspIn:'START'},
+  {group:'DŹWIGNIE',name:'Dźwignia',count:1,tags:['niewidka'],sps:[],spsFallback:['dark-gunner'],spsPref:['scout'],psp:'',task:'L2+PT',pspIn:'BOSS'},
+  {group:'DŹWIGNIE',name:'Dźwignia',count:1,tags:['niewidka'],sps:[],spsFallback:['dark-gunner'],spsPref:['scout'],psp:'',task:'L3',pspIn:'BOSS'}];
+// Kirollas / Carno / Fernon (max 8 os.) — wg poradnika (potwierdzone).
+const smallRaid=()=>[
+  {group:'',name:'Support: Warrior',count:1,tags:[],sps:['warrior'],psp:'',task:'Sprint / speed'},
+  {group:'',name:'Support: Destroyer',count:1,tags:[],sps:['destroyer'],psp:'',task:'Speed buff, Lever, gas'},
+  {group:'',name:'Support: Berserker',count:1,tags:[],sps:['berserker'],psp:'',task:'L&D, Break Armor'},
+  {group:'',name:'Damage Dealer',count:5,tags:['dd'],sps:[],spsFallback:['holy-mage','demon-warrior','mystic-arts','wild-keeper','crusader'],psp:''},
+  {group:'SUPPORT',name:'Requiem',count:1,tags:[],sps:['dark-gunner'],psp:'',task:'Teleport, Requiem, Possession',optional:true},
+  {group:'SUPPORT',name:'Fill support',count:1,tags:[],sps:['holy-mage','demon-warrior','mystic-arts','wild-keeper','crusader'],psp:'',task:'Totem / song / debuff / teleport',optional:true},
+  {group:'DEBUFFS',name:'PRI',count:1,tags:[],sps:[],psp:'pri',task:''},
+  {group:'DEBUFFS',name:'SEC',count:1,tags:[],sps:[],psp:'sec',task:''},
+  {group:'DEBUFFS',name:'ELE',count:1,tags:[],sps:[],psp:'ele',task:''},
+  {group:'DEBUFFS',name:'Extra debuff',count:3,tags:[],sps:[],psp:'+extra',task:'',optional:true}];
+// Nezarun (15 os.): okna debuffów room 1 / boss 1-3 (fazy HP bossa). Każdy debuff 2x: room 1 + boss 2 albo boss 1 + boss 3.
+const W1='room 1 / boss 2',W2='boss 1 / boss 3';
+const nezaRoles=()=>[
+  {group:'',name:'Wild Keeper',count:1,tags:[],sps:['wild-keeper'],psp:'',task:W1},
+  {group:'',name:'Wild Keeper',count:1,tags:[],sps:['wild-keeper'],psp:'',task:W2},
+  {group:'',name:'Crusader / Renegade',count:1,tags:[],sps:['crusader','renegade'],psp:'',task:W1},
+  {group:'',name:'Crusader / Renegade',count:1,tags:[],sps:['crusader','renegade'],psp:'',task:W2},
+  {group:'',name:'Holy Mage',count:1,tags:[],sps:['holy-mage'],psp:'',task:W1},
+  {group:'',name:'Holy Mage',count:1,tags:[],sps:['holy-mage'],psp:'',task:W2},
+  {group:'',name:'Destroyer',count:1,tags:[],sps:['destroyer'],psp:'',task:W2+'] [L1+L2'},
+  {group:'',name:'Berserker',count:1,tags:[],sps:['berserker'],psp:'',task:W2+'] [L3+portal'},
+  {group:'',name:'Dark Gunner',count:1,tags:[],sps:['dark-gunner'],psp:'',task:W2},
+  {group:'',name:'Damage Dealer',count:6,tags:['dd'],sps:[],psp:''},
+  ...[['PRI','pri'],['SEC','sec'],['ELE','ele']].flatMap(([n,k])=>[W1,W2].map(w=>({group:'PSP',name:n,count:1,tags:[],sps:[],psp:k,task:w}))),
+  {group:'PSP',name:'Jinn',count:1,tags:[],sps:[],psp:'jinn',task:'room 1'},
+  ...[['Akhenaton','akh'],['Ragnar / Nezarun','shadowfall'],['Lucy / Cheongbi','hip']].flatMap(([n,k])=>[W1,W2].map(w=>({group:'PSP',name:n,count:1,tags:[],sps:[],psp:k,task:w,optional:true})))];
+// Crusher Nezarun (20 os.): 4 teamy po 5, w teamie tylko SP jego żywiołu.
+const ELEM_TEAMS=[
+ ['FIRE TEAM','fire',[['PRI','pri','Start mobs / Platform mobs / Phase 1 / Phase 3'],['SEC','sec','Start mobs / Phase 1'],['ELE','ele','Start mobs / Platform mini / Phase 2'],['Ragnar / Nezarun','shadowfall','Start mini / Platform mini / Phase 2'],['Jinn','jinn','Platform ele']]],
+ ['WATER TEAM','water',[['PRI','pri','Start mobs / Platform mobs / Phase 1 / Phase 3'],['PRI','pri','Start mini / Platform mini / Phase 2'],['SEC','sec','Start mini / Phase 2'],['ELE','ele','Start mobs / Platform mobs / Phase 1 / Phase 3'],['Jinn','jinn','Platform ele']]],
+ ['SHADOW TEAM','shadow',[['ELE','ele','Start mini / Platform mini / Phase 2'],['PRI','pri','Start mobs / Platform mobs / Phase 1 / Phase 3'],['Ragnar / Nezarun','shadowfall','Start mobs / Platform mobs / Phase 1 / Phase 3'],['Akhenaton','akh','Start mobs / Platform mobs / Phase 1 / Phase 3'],['Jinn','jinn','Platform ele']]],
+ ['LIGHT TEAM','light',[['PRI','pri','Start mobs / Platform mobs / Phase 1 / Phase 3'],['SEC','sec','Platform mobs / Phase 3'],['ELE','ele','Start mini / Platform mini / Phase 2'],['Akhenaton','akh','Start mini / Platform mini / Phase 2'],['Jinn','jinn','Platform ele']]]];
+const A1='mobs 1 (1st) / mini 1 / mini 2 / boss 2',A2='mobs 1 (2nd) / ele / boss 1',B1='mobs 1 / ele / boss 1',B2='mini 1 / mini 2 / boss 2',C1='mini 1 / boss 1',C2='mini 2 / boss 2';
+const ELEM_SPDEB=[['Crusader',['crusader'],A1],['Crusader',['crusader'],A2],['Wild Keeper',['wild-keeper'],A1],['Wild Keeper',['wild-keeper'],A2],
+  ['Holy Mage',['holy-mage'],B1],['Holy Mage',['holy-mage'],B2],['Berserker / DK',['berserker','dragon-knight'],C1],['Berserker / DK',['berserker','dragon-knight'],C2],
+  ['Dark Gunner',['dark-gunner'],C1],['Dark Gunner',['dark-gunner'],C2],['Demon Warrior',['demon-warrior'],B2],['Warrior',['warrior'],B1],['Warrior',['warrior'],B2],
+  ['Destroyer',['destroyer'],A1],['Destroyer',['destroyer'],A2],['Draconic Fist',['draconic-fist'],'mobs 1 / boss 2'],
+  ['Mystic Arts',['mystic-arts'],'mini 1 / mini 2 / boss 2 (2× MA: jeden mini 1, drugi mini 2)'],['Mystic Arts',['mystic-arts'],'mini 2 (drugi MA)']];
+const ELEM_DEB_SPS=[...new Set(ELEM_SPDEB.flatMap(x=>x[1]))].filter(x=>x!=='mystic-arts');
+const elemRoles=()=>[
+  ...ELEM_TEAMS.flatMap(([team,el,rows])=>rows.map(([name,psp,task])=>({group:'',team,el,name,count:1,tags:[],sps:[],spsPref:ELEM_DEB_SPS,psp,pspSoft:true,task}))),
+  ...ELEM_SPDEB.map(([name,sps,task])=>({group:'SP DEBUFFS',name,count:1,tags:[],sps,psp:'',task,optional:true}))];
+const DEFAULT_RAIDS = [
+ {id:'giant-arma',tplV:3,name:'Giant Arma',bossEl:'none',prefEl:'',pspNice:[],note:'Uzupełnij z wiki (moduły na 70/40/20% HP).',roles:armaRoles()},
+ {id:'ultimate-arma',tplV:3,name:'Ultimate Giant Arma',bossEl:'none',prefEl:'',pspNice:[],note:'Drużyna 2–12 graczy.',roles:armaRoles()},
+ {id:'elemental',tplV:2,name:'Crusher Nezarun',bossEl:'',prefEl:'',prefTag:'debuff',pspNice:[],note:'20 os. = 4 teamy po 5 (Fire/Water/Shadow/Light). W teamie tylko SP jego żywiołu, najlepiej z debuffami (Crus, WK, Holy, Serk/DK, DG, DW, War, Des, DF). Debuffy SP zależą od składu — zawsze mobs 1.',roles:elemRoles()},
+ {id:'nezarun',tplV:1,name:'Nezarun',bossEl:'',prefEl:'light',pspNice:[],note:'15 os. 9 debufferów SP (WK×2, Crus/Ren×2, Holy×2, Des [L1+L2], Serk [L3+portal], DG) + 6 DD na SP światła. Każdy debuff 2×: room 1 + boss 2 albo boss 1 + boss 3.',roles:nezaRoles()},
+ {id:'kirollas',tplV:5,name:'Kirollas',bossEl:'',prefEl:'water',pspNice:[],note:'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — najlepiej SP wodne.',roles:smallRaid()},
+ {id:'fernon',tplV:5,name:'Fernon',bossEl:'',prefEl:'water',pspNice:[],note:'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — najlepiej SP wodne.',roles:smallRaid()},
+ {id:'carno',tplV:5,name:'Carno',bossEl:'',prefEl:'light',pspNice:[],note:'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — dowolne SP światła.',roles:smallRaid()},
+];
+
+/* ===================== STAN ===================== */
+const KEY='nt-maraton-v1';
+let S = load();PSP=S.psp;
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.sps)return migrate(s);}catch(e){}
+  return {sps:clone(DEFAULT_SPS),raids:clone(DEFAULT_RAIDS),players:[],psp:clone(DEFAULT_PSP),history:[]};
+}
+function migrate(s){
+  s.history??=[];
+  s.raids??=[];for(const d of DEFAULT_RAIDS)if(!s.raids.some(r=>r.id===d.id))s.raids.push(clone(d));  // nowe domyślne rajdy
+  for(const d of DEFAULT_SPS){const x=(s.sps||[]).find(q=>q.id===d.id);if(!x)s.sps.push(clone(d));else{if(d.tags.includes('niewidka')&&!x.tags.includes('niewidka'))x.tags.push('niewidka');x.aliases=[...new Set([...(x.aliases||[]),...d.aliases])];if(x.id==='battle-monk')x.aliases=x.aliases.filter(a=>a!=='bm'&&a!=='bm2');}}
+  s.psp??=clone(DEFAULT_PSP);PSP=s.psp;
+  for(const [k,n] of [['pri','1'],['sec','2'],['ele','3']])if(PSP[k]&&!PSP[k].alias.includes(n))PSP[k].alias.unshift(n);
+  if(PSP.jinn&&(PSP.jinn.extra||PSP.jinn.extra===undefined))PSP.jinn=clone(DEFAULT_PSP.jinn);
+  if(PSP.hip&&['Hip Swing / Horned Club','Lucy / Ragnar'].includes(PSP.hip.label))PSP.hip=clone(DEFAULT_PSP.hip);
+  for(const k of ['hip','shadowfall'])if(PSP[k]&&['Shadowfall','Lucy','Ragnar'].includes(PSP[k].label))PSP[k]=clone(DEFAULT_PSP[k]);
+  for(const [k,v] of Object.entries(DEFAULT_PSP)){if(!PSP[k])PSP[k]=clone(v);else if(v.extra&&PSP[k].extra===undefined){PSP[k].extra=true;if(/uzupełnij/.test(PSP[k].desc))PSP[k].desc=v.desc;PSP[k].cards=v.cards;}}
+  for(const p of s.players||[]){
+    if(!Array.isArray(p.psp)){const old=String(p.psp||'');p.psp=[];
+      for(const w of old.split(/[\s,]+/)){const k=typeof matchPsp==='function'?matchPsp(w):null;if(k&&!p.psp.includes(k))p.psp.push(k);}}
+  }
+  for(const r of s.raids||[]){if(['giant-arma','ultimate-arma'].includes(r.id)&&(r.tplV||0)<3){r.roles=armaRoles();r.tplV=3;}
+    if(r.id==='elemental'&&(r.tplV||0)<2){r.roles=elemRoles();r.tplV=2;}
+    if(r.id==='elemental'&&r.name==='Rajd żywiołów (20 os.)')r.name='Crusher Nezarun';
+    if(['kirollas','fernon','carno'].includes(r.id)&&(r.tplV||0)<5){r.roles=smallRaid();r.tplV=5;}  // odśwież szablon Army
+    r.pspNice??=[];delete r.onePsp;if(r.leverGroup!==undefined){for(const ro of r.roles)if(ro.group&&ro.group===r.leverGroup)ro.pspIn??=r.leverPspGroup||'';delete r.leverGroup;delete r.leverPspGroup;}
+    for(const ro of r.roles){ro.group??='';ro.psp??='';}
+    if(r.pspReq){ // stary format: PSP na drużynę -> osobne pozycje
+      for(const [k,n] of Object.entries(r.pspReq))if(+n>0){
+        r.roles.unshift({group:'',name:(s.psp?.[k]?.label||k),count:+n,tags:[],sps:[],psp:k});
+        const dd=[...r.roles].reverse().find(x=>x.tags.includes('dd')&&x.count>0);if(dd)dd.count=Math.max(0,dd.count-n);}
+      delete r.pspReq;}
+  }
+  return s;
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));}
+function clone(x){return JSON.parse(JSON.stringify(x));}
+function slug(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ł/g,'l').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+function uid(){return Math.random().toString(36).slice(2,9);}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function spById(id){return S.sps.find(s=>s.id===id);}
+function elBadge(el){el=el||'none';return `<span class="el el-${el}">${ELS[el]||el}</span>`;}
+const $=q=>document.querySelector(q);
+
+/* ===================== DOPASOWANIE SP ===================== */
+function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ł/g,'l').replace(/[^a-z0-9]/g,'');}
+function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=[...Array(n+1).keys()];
+  for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[n];}
+function matchSp(txt){
+  const t=norm(txt);if(!t)return null;
+  let best=null,bd=1e9;
+  for(const sp of S.sps){
+    const cands=[sp.name,...(sp.aliases||[])].map(norm);
+    for(const c of cands){
+      if(c===t)return sp;
+      let d=lev(t,c);
+      if(c.startsWith(t)&&t.length>=3)d=Math.min(d,0.5);
+      if(d<bd){bd=d;best=sp;}
+    }
+  }
+  return bd<=Math.max(1,Math.floor(t.length/4))?best:null;
+}
+
+/* ===================== GRACZE ===================== */
+function parseLine(line){
+  const parts=line.split(/[,;|]/).map(s=>s.trim()).filter(Boolean);
+  if(!parts.length)return null;
+  const p={id:uid(),name:parts[0],sps:[],el:'',psp:[],tags:[],active:true};
+  const errs=[];
+  const addPsp=w=>{if(ALL_RE.test(w.trim())){p.psp=Object.keys(PSP);return true;}const k=matchPsp(w);if(k){if(!p.psp.includes(k))p.psp.push(k);return true;}return false;};
+  let mode='';
+  for(let raw of parts.slice(1)){
+    const m=raw.match(/^(el|zywiol|żywioł|psp|partner|tag|tagi|rola)(?:\s*[:=]\s*|\s+)(.+)$/i);
+    if(m){
+      const k=norm(m[1]),v=m[2].trim();
+      if(k==='el'||k.startsWith('zyw')){const e=EL_ALIAS[norm(v)];if(e)p.el=e;else errs.push('żywioł "'+v+'"');mode='';}
+      else if(k==='psp'||k==='partner'){mode='psp';for(const w of v.split(/\s+/))if(!addPsp(w)&&!addPsp(v))errs.push('PSP "'+w+'"');}
+      else {mode='tag';p.tags.push(...v.split(/\s+/).map(x=>x.toLowerCase()).filter(Boolean));}
+      continue;
+    }
+    // bez prefiksu: PSP (pri/sec/ele, nazwa karty), SP albo żywioł
+    if(raw.split(/\s+/).every(w=>matchPsp(w))||matchPsp(raw)){if(!addPsp(raw))raw.split(/\s+/).forEach(addPsp);continue;}
+    const e=EL_ALIAS[norm(raw)];
+    if(e&&!matchSp(raw)){p.el=e;continue;}
+    const sp=matchSp(raw);
+    if(sp){if(!p.sps.includes(sp.id))p.sps.push(sp.id);}
+    else errs.push('"'+raw+'"');
+  }
+  return {p,errs};
+}
+// "Nick: serk 1 2 3 jinn", "[12:01] <Nick> dk, 1, jinn", "Nick serk 1 2 3" -> {p, unknown}
+const ALL_RE=/^(all|wszystkie|wszystko|full|komplet|kazde|każde)$/i;
+const FILLER=new Set(['psp','psps','sp','i','oraz','and','mam','have','+','-','&','pls','plz','join','raid','rajd','raidy','rajdy','na','do','moge','mogę','can','np','karta','karty','card','cards',
+  'hej','hejka','siema','siemka','elo','czesc','cześć','hi','hello','yo','ja','sie','się','dołączyć','dolaczyc','dolacze','dołączę','wbic','wbić','wbijam','wejsc','wejść','chce','chcę','chcialbym','chciałbym',
+  'inv','invite','zapros','zaproś','zaproszenie','z','w','a','ze','jest','im','mi','me','my','pt','party','grupa','grupy','lvl','max','+1','tez','też','too','also','oraz','plus','prosze','proszę','please','thx','dzieki','dzięki']);
+function parseChat(line){
+  let t=line.replace(/^\s*[\[(]?\d{1,2}[:.]\d{2}([:.]\d{2})?[\])]?\s*/,'').trim();   // znacznik czasu
+  if(!t)return null;
+  let name,msg;
+  const m=t.match(/^(.{1,40}?)\s*[:>»]\s*(.+)$/);        // "Nick: wiadomość" / "<Nick> wiadomość"
+  if(m){name=m[1].split(/\s+/).pop();msg=m[2];}else{const w=t.split(/\s+/);name=w[0];msg=w.slice(1).join(' ');}
+  name=name.replace(/^[<\[({"'«]+|[>\])}"'»:,.]+$/g,'');
+  if(!name)return null;
+  const tok=msg.split(/[\s,;\/|+]+/).map(x=>x.replace(/^[^\wąćęłńóśźż]+|[^\wąćęłńóśźż]+$/gi,'')).filter(Boolean)
+     .map(x=>/^[lI|!]$/.test(x)?'1':/^[zZ]$/.test(x)?'2':x)                         // typowe błędy OCR dla 1/2
+     .flatMap(x=>/^[123]{2,3}$/.test(x)?x.split(''):[x]);                            // "123" / "13" = 1 2 3 / 1 3
+  const p={id:uid(),name,sps:[],el:'',psp:[],tags:[],active:true},unknown=[];
+  let spExact=0,spFuzzy=0,pspN=0;
+  const isExactSp=(sp,ph)=>[sp.name,...(sp.aliases||[])].map(norm).includes(norm(ph));
+  for(let i=0;i<tok.length;){
+    const w=tok[i];
+    if(ALL_RE.test(w)){p.psp=Object.keys(PSP);pspN+=2;i++;continue;}
+    if(/^\d$/.test(w)){const k=matchPsp(w);if(k){if(!p.psp.includes(k))p.psp.push(k);pspN++;}else unknown.push(w);i++;continue;}
+    if(FILLER.has(w.toLowerCase())){i++;continue;}                          // „mam”, „hej”… nie są skrótami SP
+    let hit=null,len=0;
+    let maxL=0;while(maxL<3&&i+maxL<tok.length&&!/\d/.test(tok[i+maxL]))maxL++;   // cyfry to PSP, nie część nazwy SP
+    for(let l=Math.max(1,maxL);l>=1;l--){const ph=tok.slice(i,i+l).join(' ');const sp=matchSp(ph);if(sp&&(l>1||ph.length>=2)&&(ph.length>=4||isExactSp(sp,ph))){hit=sp;len=l;break;}}   // krótkie słowa tylko dokładnie
+    const k=matchPsp(w);
+    if(k&&(!hit||norm(w)===norm(PSP[k].label)||PSP[k].alias.map(norm).includes(norm(w)))&&len<=1){if(!p.psp.includes(k))p.psp.push(k);pspN++;i++;continue;}
+    if(hit){if(!p.sps.includes(hit.id))p.sps.push(hit.id);isExactSp(hit,tok.slice(i,i+len).join(' '))?spExact++:spFuzzy++;i+=len;continue;}
+    if(!FILLER.has(w.toLowerCase()))unknown.push(w);i++;
+  }
+  // ocena "czy to zapis na rajd": dokładne SP mocno, PSP lekko, nieznane słowa odejmują
+  const score=spExact*3+spFuzzy+Math.min(pspN,4)-unknown.length*1.5;
+  const signup=((spExact+spFuzzy)>0&&score>=2)||(pspN>0&&!unknown.length);   // samo PSP (np. "123 neza") też jest zapisem
+  return {p,unknown,score,signup};
+}
+const nameKey=n=>n.toLowerCase().replace(/[l1|!]/g,'i').replace(/0/g,'o');
+function findPlayer(n){return S.players.find(x=>x.name.toLowerCase()===n.toLowerCase())||S.players.find(x=>nameKey(x.name)===nameKey(n));}
+function mergePlayer(np){
+  const ex=findPlayer(np.name);
+  if(ex){ex.archived=false;for(const s of np.sps)if(!ex.sps.includes(s))ex.sps.push(s);if(np.el)ex.el=np.el;
+    for(const k of np.psp)if(!ex.psp.includes(k))ex.psp.push(k);for(const t of np.tags)if(!ex.tags.includes(t))ex.tags.push(t);ex.active=true;return 'upd';}
+  S.players.push(np);return 'add';
+}
+$('#quickAdd').onclick=()=>{
+  const lines=$('#quick').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  let added=0,upd=0;const msgs=[];
+  for(const l of lines){
+    let r=parseLine(l);if(!r)continue;
+    if(!l.includes(',')&&!l.includes(';')&&!l.includes('|')){const c=parseChat(l);if(c)r={p:c.p,errs:c.unknown.map(w=>'"'+w+'"')};}
+    mergePlayer(r.p)==='add'?added++:upd++;
+    if(r.errs.length)msgs.push(r.p.name+': nie rozpoznano '+r.errs.join(', '));
+  }
+  save();renderPlayers();
+  $('#quickMsg').innerHTML=`Dodano ${added}, zaktualizowano ${upd}.`+(msgs.length?'<br><span style="color:var(--bad)">'+msgs.map(esc).join('<br>')+'</span>':'');
+  if(!msgs.length)$('#quick').value='';
+};
+// "Yarisu serk pri" -> nick Yarisu, SP Berserker (słowa pri/main/główne = oznaczenie głównego SP, pomijane)
+function splitNick(p){
+  const w=p.name.trim().split(/\s+/);if(w.length<2)return false;
+  const rest=w.slice(1),found=[];let i=0,ok=false;
+  while(i<rest.length){
+    if(/^(pri|prim|main|glowne|główne|sp)$/i.test(rest[i])){i++;continue;}
+    let hit=null,len=0;
+    for(let l=Math.min(3,rest.length-i);l>=1;l--){const sp=matchSp(rest.slice(i,i+l).join(' '));if(sp){hit=sp;len=l;break;}}
+    if(!hit)return false;           // nieznane słowo -> zostaw nick w spokoju
+    if(!found.includes(hit.id))found.push(hit.id);i+=len;ok=true;
+  }
+  if(!ok)return false;
+  p.name=w[0];for(const id of found)if(!p.sps.includes(id))p.sps.push(id);return true;
+}
+function activeRaid(){return S.raids.find(r=>r.id===S.curRaid)||S.raids[0];}
+function fitsText(p){
+  const r=activeRaid();if(!r)return '';
+  const names=[];for(const ro of r.roles){const c=eligibleSp(p,ro);if(!c)continue;
+    const nm=(ro.group?ro.group+': ':'')+ro.name+(ro.psp&&ro.psp!=='+extra'?'':'');
+    const good=(ro.spsPref||[]).includes(c.sp?.id)||(r.prefEl&&(ro.tags||[]).includes('dd')&&c.sp?.el===r.prefEl);
+    if(!names.some(x=>x.nm===nm))names.push({nm,good,fb:c.fallback});}
+  const special=names.filter(x=>!/^Damage Dealer$/.test(x.nm));
+  if(!names.length)return '<span style="color:var(--bad)">nic — brak pasującego SP/PSP</span>';
+  return names.map(x=>`<span class="tag" style="white-space:nowrap;${x.good?'outline:1px solid var(--ok)':''}${x.fb?';opacity:.6':''}">${esc(x.nm)}${x.good?' ★':''}</span>`).join(' ');
+}
+/* ===================== OCR (screen wiadomości) ===================== */
+const OCR_CDN={lib:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',worker:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+  core:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',lang:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1/4.0.0_best_int'};
+let ocrWorker=null;
+function loadScript(src){return new Promise((ok,err)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>err(new Error('Nie udało się pobrać modułu OCR (brak internetu?)'));document.head.appendChild(e);});}
+async function getOcr(){
+  if(ocrWorker)return ocrWorker;
+  if(!window.Tesseract)await loadScript(OCR_CDN.lib);
+  ocrWorker=await Tesseract.createWorker('eng',1,{workerPath:OCR_CDN.worker,corePath:OCR_CDN.core,langPath:OCR_CDN.lang});
+  return ocrWorker;
+}
+// powiększenie + szarość + odwrócenie ciemnego tła + próg Otsu -> czarny tekst na białym
+function prepImage(img){
+  const sc=Math.min(4,Math.max(1,2400/Math.max(img.width,1)));
+  const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
+  const d=x.getImageData(0,0,c.width,c.height),a=d.data,n=a.length/4,g=new Uint8Array(n);let sum=0;
+  for(let i=0;i<n;i++){const v=Math.max(a[i*4],a[i*4+1],a[i*4+2]);g[i]=v;sum+=v;}   // max kanałów: kolorowy tekst czatu = jasny
+  const dark=sum/n<128;const hist=new Array(256).fill(0);for(let i=0;i<n;i++){if(dark)g[i]=255-g[i];hist[g[i]]++;}
+  let tot=0;for(let i=0;i<256;i++)tot+=i*hist[i];let sB=0,wB=0,best=0,th=128;
+  for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(tot-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>best){best=v;th=t;}}
+  for(let i=0;i<n;i++){const v=g[i]>th?255:0;a[i*4]=a[i*4+1]=a[i*4+2]=v;a[i*4+3]=255;}
+  x.putImageData(d,0,0);return c;
+}
+async function ocrFile(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  const url=URL.createObjectURL(file);$('#ocrImg').src=url;$('#ocrImg').style.display='';
+  $('#ocrStatus').textContent='Wczytuję moduł OCR…';$('#ocrPreview').innerHTML='';
+  try{
+    const img=await new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=url;});
+    const w=await getOcr();$('#ocrStatus').textContent='Odczytuję tekst…';
+    const {data}=await w.recognize(prepImage(img));
+    $('#ocrText').value=data.text.trim();$('#ocrText').dataset.force='[]';$('#ocrText').style.display='';$('#ocrBtns').style.display='';
+    $('#ocrStatus').textContent='Gotowe. Sprawdź tekst poniżej (popraw literówki, jeśli są) i zaznacz, kogo dodać.';
+    ocrParse();
+  }catch(e){$('#ocrStatus').innerHTML='<span style="color:var(--bad)">'+esc(e.message||e)+'</span> — możesz też przepisać wiadomość do pola poniżej.';
+    $('#ocrText').style.display='';$('#ocrBtns').style.display='';}
+}
+let ocrRows=[],ocrAll=[];
+function ocrParse(){
+  const all=$('#ocrText').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>({l,r:parseChat(l)}));
+  const force=JSON.parse($('#ocrText').dataset.force||'[]');all.forEach(x=>{if(x.r&&force.includes(x.l))x.r.signup=true;});
+  ocrRows=all.filter(x=>x.r&&x.r.signup).map(x=>x.r);
+  const skipped=all.filter(x=>!x.r||!x.r.signup);
+  const skipHtml=skipped.length?`<details style="margin-top:6px"><summary class="small mut">Pominięte linijki (nie wyglądają na zapis): ${skipped.length}</summary>
+    <div class="small mut">${skipped.map((x,i)=>`<div>${esc(x.l)} <button class="g" data-rescue="${all.indexOf(x)}" style="padding:1px 6px">+ dodaj do listy</button></div>`).join('')}</div></details>`:'';
+  ocrAll=all;
+  if(!ocrRows.length){$('#ocrPreview').innerHTML='<p class="mut small">Nie znalazłem w tekście żadnego zapisu (SP / PSP). Popraw tekst i kliknij „Rozpoznaj”.</p>'+skipHtml;return;}
+  $('#ocrPreview').innerHTML=`<table style="margin-top:8px"><thead><tr><th>Dodaj</th><th>Nick</th><th>SP</th><th>PSP</th><th>Nie rozpoznano</th></tr></thead><tbody>${
+    ocrRows.map((r,i)=>{const exP=findPlayer(r.p.name);if(exP)r.p.name=exP.name;const ex=!!exP;
+      return `<tr data-oi="${i}"><td><input type="checkbox" data-ochk checked></td><td><input data-oname value="${esc(r.p.name)}" style="width:130px">${ex?' <span class="small mut">(już jest — uzupełnię)</span>':''}</td>
+      <td>${r.p.sps.map(id=>`<span class="tag">${esc(spById(id)?.name)} ${elBadge(spById(id)?.el)}</span>`).join(' ')||'<span style="color:var(--bad)">brak</span>'}</td>
+      <td>${r.p.psp.map(pspBadge).join(' ')||'—'}</td><td class="small" style="color:var(--bad)">${esc(r.unknown.join(', '))}</td></tr>`;}).join('')}</tbody></table>
+    <div class="row" style="margin-top:8px"><button class="b" id="ocrAdd">Dodaj zaznaczonych</button></div>`+skipHtml;
+}
+$('#ocrParse').onclick=ocrParse;
+$('#ocrPreview').addEventListener('click',e=>{
+  const rs=e.target.dataset.rescue;
+  if(rs!==undefined){const x=ocrAll[+rs];if(x?.r){x.r.signup=true;const keep=ocrAll.filter(y=>y.r&&y.r.signup).map(y=>y.l);
+    // przelicz z zachowaniem ręcznie "uratowanych" linijek
+    $('#ocrText').dataset.force=JSON.stringify([...(JSON.parse($('#ocrText').dataset.force||'[]')),x.l]);ocrParse();}return;}
+  if(e.target.id!=='ocrAdd')return;let a=0,u=0;
+  document.querySelectorAll('#ocrPreview tr[data-oi]').forEach(tr=>{
+    if(!tr.querySelector('[data-ochk]').checked)return;const r=ocrRows[+tr.dataset.oi];
+    r.p.name=tr.querySelector('[data-oname]').value.trim()||r.p.name;mergePlayer(r.p)==='add'?a++:u++;});
+  save();renderPlayers();$('#ocrPreview').innerHTML=`<p class="small" style="color:var(--ok)">Dodano ${a}, uzupełniono ${u}.</p>`;
+});
+$('#ocrFile').onchange=e=>ocrFile(e.target.files[0]);
+$('#ocrDrop').addEventListener('dragover',e=>e.preventDefault());
+$('#ocrDrop').addEventListener('drop',e=>{e.preventDefault();ocrFile(e.dataTransfer.files[0]);});
+document.addEventListener('paste',e=>{
+  if(!$('#players').classList.contains('on'))return;
+  const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
+  if(it){e.preventDefault();ocrFile(it.getAsFile());}
+});
+function playerClass(p){const c=[...new Set(p.sps.map(id=>spById(id)?.cls).filter(Boolean))];return c.join('/')||'—';}
+function playerEl(p){return p.el||spById(p.sps[0])?.el||'none';}
+function spOptions(sel){
+  return '<option value="">+ SP…</option>'+CLASSES.map(c=>`<optgroup label="${c}">`+S.sps.filter(s=>s.cls===c).map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${esc(s.name)}</option>`).join('')+'</optgroup>').join('')
+   +S.sps.filter(s=>!CLASSES.includes(s.cls)).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+}
+function renderPlayers(){
+  const f=norm($('#pfilter').value||'');
+  const showA=$('#pArch')?.checked;
+  const list=S.players.filter(p=>(showA?p.archived:!p.archived)).filter(p=>!f||norm(p.name).includes(f)||p.sps.some(id=>norm(spById(id)?.name||'').includes(f)));
+  const cur=S.players.filter(p=>!p.archived),nA=S.players.length-cur.length;
+  $('#pcount').textContent=showA?`(archiwum: ${nA})`:`(${cur.filter(p=>p.active).length} obecnych / ${cur.length})`;
+  $('#pArchN').textContent=nA;
+  $('#ptable').innerHTML=list.map(p=>`<tr class="${p.active&&!p.archived?'':'off'}" data-id="${p.id}">
+    <td>${p.archived?`<button class="g" data-restore title="Przywróć na listę">↩</button>`:`<input type="checkbox" data-f="active" ${p.active?'checked':''}>`}</td>
+    <td><input data-f="name" value="${esc(p.name)}" style="width:120px"></td>
+    <td class="small" ${playerClass(p).includes('/')?'style="color:var(--bad)" title="SP z różnych klas — to na pewno ta sama postać?"':''}>${esc(playerClass(p))}</td>
+    ${[0,1].map(i=>{const sp=spById(p.sps[i]);return `<td style="white-space:nowrap"><select data-f="sp${i}" style="width:140px" ${i&&!p.sps[0]?'disabled':''}>${spOptions(p.sps[i]||'').replace('+ SP…','—')}</select> ${sp?elBadge(sp.el):''}${i===1&&p.sps.length>2?` <span class="mut small" title="${esc(p.sps.slice(2).map(id=>spById(id)?.name).join(', '))}">+${p.sps.length-2}</span>`:''}</td>`;}).join('')}
+    <td><select data-f="el"><option value="">auto (${ELS[spById(p.sps[0])?.el||'none']})</option>${Object.entries(ELS).map(([k,v])=>`<option value="${k}" ${p.el===k?'selected':''}>${v}</option>`).join('')}</select></td>
+    <td class="chk" style="min-width:260px;max-width:420px">${Object.keys(PSP).map(k=>`<label title="${esc(PSP[k].desc)}"><input type="checkbox" data-psp="${k}" ${p.psp.includes(k)?'checked':''}> ${esc(PSP[k].label)}</label>`).join('')}</td>
+    <td class="small" style="min-width:230px;max-width:320px">${fitsText(p)}</td>
+    <td><input data-f="tags" value="${esc(p.tags.join(' '))}" placeholder="opcjonalnie" style="width:100px"></td>
+    <td><button class="x" data-del>×</button></td></tr>`).join('')||'<tr><td colspan="10" class="mut">Brak graczy — dodaj kogoś wyżej.</td></tr>';
+}
+$('#ptable').addEventListener('change',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;const p=S.players.find(x=>x.id===tr.dataset.id);if(!p)return;
+  const f=e.target.dataset.f;
+  if(f==='active')p.active=e.target.checked;
+  else if(f==='name'){p.name=e.target.value.trim();splitNick(p);}
+  else if(f==='el')p.el=e.target.value;
+  else if(e.target.dataset.psp){const k=e.target.dataset.psp;p.psp=p.psp.filter(x=>x!==k);if(e.target.checked)p.psp.push(k);}
+  else if(f==='tags')p.tags=e.target.value.toLowerCase().split(/[\s,]+/).filter(Boolean);
+  else if(f==='sp0'||f==='sp1'){const i=+f[2],v=e.target.value;
+    const j=v?p.sps.indexOf(v):-1;
+    if(j>=0&&j!==i){[p.sps[i],p.sps[j]]=[p.sps[j],p.sps[i]];}   // to samo SP w drugiej kolumnie -> zamiana miejscami
+    else if(v)p.sps[i]=v;else p.sps.splice(i,1);
+    p.sps=p.sps.filter(Boolean);}
+  save();renderPlayers();
+});
+$('#ptable').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;const p=S.players.find(x=>x.id===tr.dataset.id);if(!p)return;
+  if(e.target.dataset.rm){e.preventDefault();p.sps=p.sps.filter(x=>x!==e.target.dataset.rm);}
+  else if(e.target.dataset.up){e.preventDefault();const i=+e.target.dataset.up;const [s]=p.sps.splice(i,1);p.sps.unshift(s);}
+  else if(e.target.hasAttribute('data-restore')){p.archived=false;p.active=true;}
+  else if(e.target.hasAttribute('data-del')){if(!confirm('Usunąć '+p.name+'?'))return;S.players=S.players.filter(x=>x!==p);}
+  else return;
+  save();renderPlayers();
+});
+$('#pfilter').oninput=renderPlayers;
+$('#clearList').onclick=()=>{
+  const cur=S.players.filter(p=>!p.archived);if(!cur.length)return;
+  if(!confirm(`Wyczyścić listę (${cur.length} graczy)?\n\nGracze trafią do archiwum: historia i ranking zostają, a gdy ktoś znowu się zapisze tym samym nickiem, wróci ze swoimi SP i PSP.`))return;
+  cur.forEach(p=>{p.archived=true;p.active=false;});save();renderPlayers();$('#aout').innerHTML='';lastTeams=null;
+};
+$('#pArch').onchange=renderPlayers;
+$('#allOn').onclick=()=>{S.players.forEach(p=>{if(!p.archived)p.active=true;});save();renderPlayers();};
+$('#allOff').onclick=()=>{S.players.forEach(p=>{if(!p.archived)p.active=false;});save();renderPlayers();};
+$('#fixNicks').onclick=()=>{let n=0;const bad=[];for(const p of S.players){if(splitNick(p))n++;else if(!p.sps.length)bad.push(p.name);}
+  save();renderPlayers();alert(`Poprawiono ${n} graczy.`+(bad.length?`\nNie rozpoznano SP u: ${bad.join(', ')} — dodaj SP z listy „+ SP…”.`:''));};
+$('#addEmpty').onclick=()=>{S.players.push({id:uid(),name:'Nowy',sps:[],el:'',psp:[],tags:[],active:true});save();renderPlayers();};
+
+/* ===================== ALGORYTM PRZYDZIAŁU ===================== */
+// Zwraca najlepszy SP gracza pasujący do roli (lub null). Tag gracza też kwalifikuje.
+function eligibleSp(p,role){
+  const hasPsp=!role.psp||(role.psp==='+extra'?p.psp.some(k=>PSP[k]?.extra):p.psp.includes(role.psp));
+  if(!hasPsp&&!role.pspSoft)return null;
+  const r=eligibleSpCore(p,role);
+  if(r&&!hasPsp){r.noPsp=true;}                    // miejsce zajęte bez wymaganego PSP (awaryjnie)
+  return r;
+}
+function eligibleSpCore(p,role){
+  const tags=role.tags||[],sps=role.sps||[];
+  const elOk=sp=>!!sp&&(!role.el||sp.el===role.el);   // np. Fire Team: tylko SP ognia
+  const firstOk=()=>{for(let i=0;i<p.sps.length;i++){const sp=spById(p.sps[i]);if(elOk(sp))return {sp,idx:i};}return null;};
+  const playerTagOk=tags.some(t=>p.tags.includes(t));
+  for(let i=0;i<p.sps.length;i++){
+    const sp=spById(p.sps[i]);if(!elOk(sp))continue;
+    if(sps.includes(sp.id)||tags.some(t=>sp.tags.includes(t)))return {sp,idx:i};
+  }
+  if(playerTagOk){const f=firstOk();if(f||!role.el)return {...(f||{sp:spById(p.sps[0])||null,idx:0}),byTag:true};}
+  for(let i=0;i<p.sps.length;i++){const sp=spById(p.sps[i]);if(elOk(sp)&&(role.spsFallback||[]).includes(sp.id))return {sp,idx:i,fallback:true};}
+  for(let i=0;i<p.sps.length;i++){const sp=spById(p.sps[i]);if(elOk(sp)&&(role.tagsFallback||[]).some(t=>sp.tags.includes(t)))return {sp,idx:i,fallback:true};}
+  if(!tags.length&&!sps.length){if(!role.el)return {sp:spById(p.sps[0])||null,idx:0};return firstOk();} // rola "dowolna" (w danym żywiole)
+  return null;
+}
+/* ===================== HISTORIA ===================== */
+let HIST=null;
+function histStats(){
+  const st={};const g=id=>st[id]??={runs:0,t1:0,t2:0,t3:0,pts:0,rs:[],notes:[],sessions:0};
+  for(const se of S.history||[]){
+    for(const id of se.team){const x=g(id);x.sessions++;x.runs+=se.runs.length;
+      if(se.ratings?.[id])x.rs.push(+se.ratings[id]);if(se.notes?.[id])x.notes.push(se.notes[id]);}
+    for(const r of se.runs)r.top.forEach((id,i)=>{if(!id)return;const x=g(id);x['t'+(i+1)]++;x.pts+=3-i;});
+  }
+  for(const x of Object.values(st)){x.top=x.t1+x.t2+x.t3;x.share=x.runs?x.top/x.runs:0;x.avg=x.rs.length?x.rs.reduce((a,b)=>a+b,0)/x.rs.length:null;}
+  return st;
+}
+function histBonus(p){const x=HIST?.[p.id];if(!x)return 0;return x.share*4+(x.avg!=null?(x.avg-3)*0.8:0);}
+function score(p,role,raid,cand){
+  let s=10-cand.idx*3;                       // preferuj główne SP
+  if(S.useHist)s+=histBonus(p);              // lepsi z historii mają pierwszeństwo
+  if(cand.fallback)s-=20;
+  if(cand.noPsp)s-=25;                       // bez wymaganego PSP tylko w ostateczności
+  if(raid.prefTag&&cand.sp?.tags?.includes(raid.prefTag))s+=3;   // np. SP z debuffami
+  if((role.spsPref||[]).includes(cand.sp?.id))s+=5;   // np. Scout na L2/L3 (skacze przez ściany)                    // SP awaryjne (np. DG na dźwigni) tylko gdy nie ma nikogo lepszego
+  const el=cand.sp?.el||playerEl(p);
+  if(raid.prefEl&&el===raid.prefEl)s+=(role.tags||[]).includes('dd')?7:4;     // żywioł skuteczny na bossa
+  if(cand.byTag)s+=2;
+  return s;
+}
+function assign(raid,teams){
+  HIST=S.useHist?histStats():null;
+  const players=S.players.filter(p=>p.active&&!p.archived);
+  const R=raid.roles;
+  const isPh=ri=>!!R[ri].group;
+  const memRi=R.map((r,i)=>i).filter(i=>!isPh(i)), phRi=R.map((r,i)=>i).filter(isPh);
+  const size=memRi.reduce((a,i)=>a+(+R[i].count||0),0);
+  const fits=new Map(players.map(p=>[p.id,R.map(r=>eligibleSp(p,r))]));
+  const memFlex=new Map(players.map(p=>[p.id,memRi.filter(i=>fits.get(p.id)[i]).length]));
+  const nice=(raid.pspNice||[]).filter(k=>PSP[k]);
+  const mSlots=[],pSlots=[];
+  for(let t=0;t<teams;t++){memRi.forEach(ri=>{for(let k=0;k<R[ri].count;k++)mSlots.push({team:t,ri});});
+                           phRi.forEach(ri=>{for(let k=0;k<R[ri].count;k++)pSlots.push({team:t,ri});});}
+  // klucz cooldownu: ten sam PSP nie dwa razy w rajdzie (albo jeden PSP na gracza, jeśli opcja)
+  // każdy gracz ma JEDEN PSP na cały rajd -> max jedno zadanie z PSP na gracza
+  const cdKey=(p,ri)=>R[ri].psp?p.id+'|psp':null;
+  // pozycje z "PSP w sekcji" (np. L1 -> START, L3 -> BOSS): ich wykonawca używa PSP tylko w tej sekcji
+  const pin=new Map(),pspAt=new Map(),optAt=new Set();     // gracz -> {sec,n}; gracz -> sekcja, w której używa PSP
+
+  // ---- 1) Zadania w fazach: przeszukiwanie z nawrotami (maks. liczba obsadzonych)
+  const elig=R.map((r,ri)=>players.filter(p=>fits.get(p.id)[ri]).length);
+  const opt=ri=>!!R[ri].optional, W=si=>opt(pSlots[si].ri)?1:1000;
+  const pOrder=pSlots.map((x,i)=>i).sort((a,b)=>opt(pSlots[a].ri)-opt(pSlots[b].ri)||pSlots[a].team-pSlots[b].team||elig[pSlots[a].ri]-elig[pSlots[b].ri]);
+  const restW=[];for(let i=pOrder.length;i>=0;i--)restW[i]=i===pOrder.length?0:restW[i+1]+W(pOrder[i]);
+  const cur=new Array(pSlots.length).fill(null);let best=cur.slice(),bestN=-1,bestSc=-1e9,budget=40000;
+  const used=new Set(),busy=new Set(),teamOf=new Map(),refc=new Map(),teamN=new Array(teams).fill(0);
+  const phScore=(p,si)=>{const sl=pSlots[si],r=R[sl.ri];let x=score(p,r,raid,fits.get(p.id)[sl.ri])+(teamOf.get(p.id)===sl.team?3:0)-p.psp.length*0.5;
+    if(r.psp&&pin.get(p.id)?.sec===r.group)x+=r.optional?2:8;                 // np. L1 bierze wolny PSP na starcie
+    if(r.psp&&memRi.some(i=>R[i].psp&&R[i].psp!==r.psp&&p.psp.includes(R[i].psp)))x-=4; // oszczędzaj np. jedynego Jinna
+    if(r.pspIn&&pspAt.get(p.id)===r.pspIn)x+=optAt.has(p.id)?2:8;   // L1 = ktoś z wymaganym PSP ze startu
+    if(r.pspIn&&!pspAt.has(p.id)&&!busy.has(p.id+'|'+r.pspIn))x+=2;
+    x-=3*(refc.get(p.id)||0);                                       // rozkładaj zadania na różne osoby
+    return x;};
+  function can(p,si){
+    const sl=pSlots[si];
+    if(!fits.get(p.id)[sl.ri])return false;
+    if(memRi.length&&!memFlex.get(p.id))return false;
+    if(teamOf.has(p.id)?teamOf.get(p.id)!==sl.team:teamN[sl.team]>=size)return false;
+    const k=cdKey(p,sl.ri);if(k&&used.has(k))return false;
+    const r=R[sl.ri],pn=pin.get(p.id);
+    if(r.pspIn&&pspAt.has(p.id)&&pspAt.get(p.id)!==r.pspIn)return false;
+    if(r.pspIn&&pn&&pn.sec!==r.pspIn)return false;
+    if(r.psp&&pn&&pn.sec!==r.group)return false;
+    return !busy.has(p.id+'|'+R[sl.ri].group);
+  }
+  function put(p,si,on){
+    const sl=pSlots[si],k=cdKey(p,sl.ri),b=p.id+'|'+R[sl.ri].group;
+    if(on){if(k){used.add(k);pspAt.set(p.id,R[sl.ri].group);if(R[sl.ri].optional)optAt.add(p.id);}if(R[sl.ri].pspIn){const o=pin.get(p.id);pin.set(p.id,{sec:R[sl.ri].pspIn,n:(o?o.n:0)+1});}busy.add(b);const c=(refc.get(p.id)||0)+1;refc.set(p.id,c);if(c===1){teamOf.set(p.id,sl.team);teamN[sl.team]++;}cur[si]=p;}
+    else{if(k){used.delete(k);pspAt.delete(p.id);optAt.delete(p.id);}if(R[sl.ri].pspIn){const o=pin.get(p.id);if(o.n>1)o.n--;else pin.delete(p.id);}busy.delete(b);const c=refc.get(p.id)-1;refc.set(p.id,c);if(!c){teamOf.delete(p.id);teamN[sl.team]--;}cur[si]=null;}
+  }
+  // 1a) Najpierw dźwignie (pozycje z "PSP w sekcji"): Scout itp. na L2/L3, reszta niewidek na L1.
+  const reqPsp=pOrder.filter(si=>R[pSlots[si].ri].psp&&!opt(pSlots[si].ri));
+  const leverSl=pOrder.filter(si=>{const r=R[pSlots[si].ri];return !r.psp&&r.pspIn&&!opt(pSlots[si].ri);})
+    .sort((a,b)=>((R[pSlots[b].ri].spsPref||[]).length>0)-((R[pSlots[a].ri].spsPref||[]).length>0));
+  const hasPspIn=(p,sec,t)=>reqPsp.some(si=>pSlots[si].team===t&&R[pSlots[si].ri].group===sec&&fits.get(p.id)[pSlots[si].ri]);
+  const okMem=p=>!memRi.length||memFlex.get(p.id);
+  const lScore=(p,si)=>{const sl=pSlots[si],r=R[sl.ri];return score(p,r,raid,fits.get(p.id)[sl.ri])+(hasPspIn(p,r.pspIn,sl.team)?6:0)-p.psp.length*0.3;};
+  function kuhn(slotsList,candFn,scoreFn){
+    const own=new Map(),at=new Map(),cc=new Map();
+    function go(si,seen){
+      if(!cc.has(si))cc.set(si,players.filter(p=>candFn(p,si)).sort((x,y)=>scoreFn(y,si)-scoreFn(x,si)));
+      for(const p of cc.get(si))if(!at.has(p.id)&&!seen.has(p.id)){own.set(si,p);at.set(p.id,si);return true;} // najpierw wolni
+      for(const p of cc.get(si)){if(seen.has(p.id))continue;seen.add(p.id);
+        const cu=at.get(p.id);if(cu!==undefined&&go(cu,seen)){own.set(si,p);at.set(p.id,si);return true;}}
+      return false;}
+    for(const si of slotsList)go(si,new Set());
+    return own;
+  }
+  const lOwn=kuhn(leverSl,(p,si)=>fits.get(p.id)[pSlots[si].ri]&&okMem(p),lScore);
+  const lPin=new Map();for(const [si,p] of lOwn)lPin.set(p.id,{sec:R[pSlots[si].ri].pspIn,team:pSlots[si].team});
+  // 1b) Wymagane PSP (PRI/ELE/SEC/Jinn): maksymalne skojarzenie; ludzie z dźwigni tylko w swojej fazie i z pierwszeństwem
+  const prefOther=(p,si)=>{const sl=pSlots[si];return reqPsp.some(sj=>{const o=pSlots[sj];return o.team===sl.team&&R[o.ri].group!==R[sl.ri].group&&
+      (R[o.ri].spsPref||[]).includes(fits.get(p.id)[o.ri]?.sp?.id);});};
+  const aScore=(p,si)=>{const sl=pSlots[si],r=R[sl.ri];return score(p,r,raid,fits.get(p.id)[sl.ri])-p.psp.length*0.5+(lPin.has(p.id)?10:0)-(prefOther(p,si)?4:0);};
+  const aOwn=kuhn(reqPsp,(p,si)=>{const sl=pSlots[si];if(!fits.get(p.id)[sl.ri]||!okMem(p))return false;
+      const lp=lPin.get(p.id);return !lp||(lp.sec===R[sl.ri].group&&lp.team===sl.team);},aScore);
+  // zabezpieczenie: dźwignie nie mogą zmniejszyć liczby obsadzonych wymaganych PSP
+  const aFree=kuhn(reqPsp,(p,si)=>fits.get(p.id)[pSlots[si].ri]&&okMem(p),(p,si)=>score(p,R[pSlots[si].ri],raid,fits.get(p.id)[pSlots[si].ri])-p.psp.length*0.5);
+  if(aFree.size>aOwn.size){for(const [si,p] of aFree)if(can(p,si))put(p,si,true);}   // dźwignie dobierze krok 1c
+  else{for(const [si,p] of lOwn)if(can(p,si))put(p,si,true);
+       for(const [si,p] of aOwn)if(can(p,si))put(p,si,true);}
+  // 1c) Reszta (opcjonalne debuffy, inne zadania): przeszukiwanie z nawrotami przy ustalonych PSP
+  const rest=pOrder.filter(si=>!cur[si]&&(!opt(pSlots[si].ri)||!memRi.length));   // opcjonalne -> krok 3, tylko ze składu
+  const restW2=[];for(let i=rest.length;i>=0;i--)restW2[i]=i===rest.length?0:restW2[i+1]+W(rest[i]);
+  function dfs(i,n,sc){
+    if(--budget<0)return;
+    if(n+restW2[i]<bestN)return;
+    if(i===rest.length){if(n>bestN||(n===bestN&&sc>bestSc)){bestN=n;bestSc=sc;best=cur.slice();}return;}
+    const si=rest[i];
+    const c=players.filter(p=>can(p,si)).map(p=>({p,s:phScore(p,si)})).sort((a,b)=>b.s-a.s).slice(0,8);
+    for(const {p,s:ps} of c){put(p,si,true);dfs(i+1,n+W(si),sc+ps);put(p,si,false);if(budget<0)return;}
+    dfs(i+1,n,sc);
+  }
+  dfs(0,0,0);
+  const ph=best.slice();
+  // ---- 2) Skład: nosiciele zadań muszą trafić do swojej drużyny
+  const lock=new Map(),carry=new Map();ph.forEach((p,si)=>{if(p){lock.set(p.id,pSlots[si].team);if(R[pSlots[si].ri].psp)carry.set(p.id,realPsp(p,R[pSlots[si].ri]));}});
+  const okPsp=(p,ri)=>!R[ri].psp||!carry.has(p.id)||carry.get(p.id)===R[ri].psp;
+  const owner=new Array(mSlots.length).fill(null),at=new Map();
+  const okTeam=(p,sl)=>!lock.has(p.id)||lock.get(p.id)===sl.team;
+  function tryP(p,seen){
+    const opts=mSlots.map((x,i)=>i).filter(i=>okTeam(p,mSlots[i])&&fits.get(p.id)[mSlots[i].ri]&&okPsp(p,mSlots[i].ri));
+    for(const i of opts){if(seen.has(i))continue;seen.add(i);
+      if(!owner[i]||tryP(owner[i],seen)){owner[i]=p;at.set(p.id,i);return true;}}
+    return false;
+  }
+  for(const p of [...new Set(ph.filter(Boolean))])if(!tryP(p,new Set())){ph.forEach((q,si)=>{if(q===p)ph[si]=null;});lock.delete(p.id);}
+  const mFlex=new Map(players.map(p=>[p.id,memFlex.get(p.id)]));
+  const mOrder=mSlots.map((x,i)=>i).filter(i=>!owner[i]).sort((a,b)=>elig[mSlots[a].ri]-elig[mSlots[b].ri]||mSlots[a].team-mSlots[b].team);
+  const wantsExtra=R.some(r=>r.psp==='+extra');
+  const mScore=(p,sl)=>score(p,R[sl.ri],raid,fits.get(p.id)[sl.ri])-mFlex.get(p.id)+p.psp.filter(k=>nice.includes(k)).length*2+p.psp.length*0.5+(wantsExtra&&p.psp.some(k=>PSP[k]?.extra)?1.5:0);
+  // przejście 1: tylko pełne dopasowania (z wymaganym PSP); przejście 2: wolne miejsca awaryjnie (bez PSP)
+  function tryS(si,seen){
+    const sl=mSlots[si];
+    const c=players.filter(p=>{const f=fits.get(p.id)[sl.ri];return f&&!f.noPsp&&okTeam(p,sl)&&okPsp(p,sl.ri);}).sort((x,y)=>mScore(y,sl)-mScore(x,sl));
+    for(const p of c)if(!at.has(p.id)&&!seen.has(p.id)){owner[si]=p;at.set(p.id,si);return true;}   // najpierw wolni
+    for(const p of c){if(seen.has(p.id))continue;seen.add(p.id);
+      const cu=at.get(p.id);
+      if(cu!==undefined&&tryS(cu,seen)){owner[si]=p;at.set(p.id,si);return true;}}
+    return false;
+  }
+  for(const si of mOrder)if(!owner[si])tryS(si,new Set());
+  for(const si of mOrder)if(!owner[si]){const sl=mSlots[si];
+    const c=players.filter(p=>!at.has(p.id)&&fits.get(p.id)[sl.ri]&&okTeam(p,sl)&&okPsp(p,sl.ri)).sort((x,y)=>mScore(y,sl)-mScore(x,sl));
+    if(c.length){owner[si]=c[0];at.set(c[0].id,si);}}
+  // ---- 3) Dopełnienie pustych zadań ludźmi ze składu (te same zasady)
+  if(memRi.length){
+    used.clear();busy.clear();teamOf.clear();refc.clear();pin.clear();pspAt.clear();optAt.clear();teamN.fill(0);
+    ph.forEach((p,si)=>{if(p)put(p,si,true);});
+    // osoba w slocie składu z PSP (np. Jinn) już "zużyła" swój PSP
+    mSlots.forEach((sl,i)=>{const p=owner[i];if(p&&R[sl.ri].psp)used.add(p.id+'|psp');});
+    const members=players.filter(p=>at.has(p.id));
+    pOrder.forEach(si=>{if(ph[si])return;const sl=pSlots[si];
+      const c=members.filter(p=>mSlots[at.get(p.id)].team===sl.team&&can(p,si)).sort((x,y)=>phScore(y,si)-phScore(x,si));
+      if(c.length)put(c[0],si,true),ph[si]=c[0];});
+    ph.forEach((p,si)=>{if(p&&R[pSlots[si].ri].psp)carry.set(p.id,realPsp(p,R[pSlots[si].ri]));});
+  }
+  // ---- wynik
+  const groups=[...new Set(phRi.map(i=>R[i].group))];
+  const res=[...Array(teams)].map(()=>({mem:memRi.map(ri=>({role:R[ri],list:[]})),phases:groups.map(g=>({g,items:phRi.filter(i=>R[i].group===g).map(ri=>({role:R[ri],ri,list:[]}))}))}));
+  mSlots.forEach((sl,i)=>{const p=owner[i];res[sl.team].mem[memRi.indexOf(sl.ri)].list.push(p?{p,c:fits.get(p.id)[sl.ri]}:null);});
+  pSlots.forEach((sl,i)=>{const p=ph[i];const g=groups.indexOf(R[sl.ri].group);
+    res[sl.team].phases[g].items.find(x=>x.ri===sl.ri).list.push(p?{p,c:fits.get(p.id)[sl.ri]}:null);});
+  const inTeam=memRi.length?(p=>at.has(p.id)):(p=>lock.has(p.id));
+  const teamIdx=p=>memRi.length?mSlots[at.get(p.id)].team:lock.get(p.id);
+  res.forEach((tm,t)=>{tm.nice=nice.map(k=>({k,list:players.filter(p=>inTeam(p)&&teamIdx(p)===t&&p.psp.includes(k))}));});
+  const brings=p=>carry.get(p.id)||(()=>{const i=at.get(p.id);const r=i!==undefined?R[mSlots[i].ri]:null;if(r&&r.psp&&r.psp!=='+extra'&&p.psp.includes(r.psp))return r.psp;
+    return p.psp.find(k=>nice.includes(k))||p.psp[0]||'';})();
+  return {res,bench:players.filter(p=>!inTeam(p)),size,brings};
+}
+function raidSize(r){const m=r.roles.filter(x=>!x.group);return (m.length?m:r.roles).reduce((a,x)=>a+(+x.count||0),0);}
+
+function renderAssignSel(){
+  if(!S.raids.find(r=>r.id===S.curRaid))S.curRaid=S.raids[0]?.id;
+  const o=S.raids.map(r=>`<option value="${r.id}" ${r.id===S.curRaid?'selected':''}>${esc(r.name)} (${raidSize(r)} os.)</option>`).join('');
+  $('#araid').innerHTML=o;$('#praid').innerHTML=o;
+  const r=activeRaid();$('#praidNote').textContent=r?.note||'';
+}
+const setRaid=v=>{S.curRaid=v;save();renderAssignSel();renderPlayers();$('#aout').innerHTML='';};
+$('#araid').onchange=e=>setRaid(e.target.value);$('#praid').onchange=e=>setRaid(e.target.value);
+let lastText='';
+$('#arun').onclick=()=>{
+  const raid=S.raids.find(r=>r.id===$('#araid').value);if(!raid)return;
+  const n=S.players.filter(p=>p.active).length,size=raidSize(raid)||1;
+  let teams=+$('#ateams').value||1;
+  if($('#aauto').checked){teams=Math.max(1,Math.floor(n/size));$('#ateams').value=teams;}
+  const noSp=S.players.filter(p=>p.active&&!p.archived&&!p.sps.length);
+  const {res,bench,brings}=assign(raid,teams);
+  let html='<div class="grid">',txt='';
+  let missing=0,missingPh=0,noPspN=0;
+  const line=(role,x,showPsp)=>{
+    const task=role.task?` <b style="color:var(--acc)">[${esc(role.task)}]</b>`:'';
+    const lab=`<span class="tag">${esc(role.name)}</span>${role.psp?pspBadge(x&&role.psp==='+extra'?realPsp(x.p,role):role.psp):''}`;
+    if(!x&&role.optional)return {h:`<tr><td>${lab}</td><td class="mut small" colspan="2">— (opcjonalne, brak wolnej osoby) —</td></tr>`,t:''};
+    if(!x)return {h:`<tr><td>${lab}</td><td class="empty" colspan="2">— brak —${task}</td></tr>`,t:`[${en(role.name)}] — *(empty)*${role.task?' **['+role.task+']**':''}\n`};
+    const el=x.c.sp?.el||playerEl(x.p);
+    const bk=showPsp?brings(x.p):'';
+    const np=x.c.noPsp?' <span class="small" style="color:var(--bad)">(bez PSP)</span>':'';
+    return {h:`<tr><td>${lab}</td><td><b>${esc(x.p.name)}</b>${task}</td><td>${esc(x.c.sp?.name||'—')} ${x.c.idx>0?'<span class="mut small">(zap.)</span>':''}${x.c.fallback?' <span class="small" style="color:var(--bad)">(awaryjnie)</span>':''}${np} ${elBadge(el)} ${bk&&!role.psp?pspBadge(bk):''}</td></tr>`,
+            t:`[${en(role.psp==='+extra'?PSP[realPsp(x.p,role)].label:role.name)}] ${x.p.name} — ${x.c.sp?.name||'?'}${x.c.fallback?' (backup)':''}${x.c.noPsp?' (no PSP)':''}${bk&&!role.psp?' | PSP: '+en(PSP[bk].label):''}${role.task?' **['+role.task+']**':''}\n`};
+  };
+  const head=(g)=>`<tr><td colspan="3" style="padding-top:12px;font-weight:800;color:var(--acc)">${esc(g)}</td></tr>`;
+  res.forEach((team,ti)=>{
+    html+=`<div class="card team"><h2><span>${esc(raid.name)} — Drużyna ${ti+1}</span><span class="mut small">${raid.prefEl?'cel: '+elBadge(raid.prefEl):''}</span></h2><table>`;
+    txt+=`**${raid.name}${teams>1?' — Team '+(ti+1):''}**\n`;
+    if(team.mem.length){const sub=team.mem.some(m=>m.role.team);let lastSub=null;
+      if(!sub){html+=head('SKŁAD');txt+='\n**TEAM**\n';}
+      team.mem.forEach(({role,list})=>{
+        if(sub&&role.team!==lastSub){lastSub=role.team;html+=head(role.team||'SKŁAD');txt+=`\n**${en(role.team||'SKŁAD')}**\n`;}
+        list.forEach(x=>{if(!x)missing++;else if(x.c.noPsp)noPspN++;const l=line(role,x,true);html+=l.h;txt+=l.t;});});}
+    team.phases.forEach(ph=>{html+=head(ph.g);let t='';
+      ph.items.forEach(({role,list})=>list.forEach(x=>{if(!x&&!role.optional)missingPh++;const l=line(role,x);html+=l.h;t+=l.t;}));
+      if(t)txt+=`\n**${en(ph.g)}**\n`+t;});
+    if(team.nice.length){
+      html+=`<tr><td colspan="3" style="padding-top:12px" class="mut small">Mile widziane PSP w składzie: ${team.nice.map(n=>pspBadge(n.k)+' '+(n.list.length?esc(n.list.map(p=>p.name).join(', ')):'—')).join(' &nbsp; ')}</td></tr>`;
+      txt+=`\n${team.nice.map(n=>en(PSP[n.k].label)+': '+(n.list.length?n.list.map(p=>p.name).join(', '):'—')).join(' | ')}\n`;
+    }
+    html+='</table></div>';txt+='\n';
+  });
+  html+='</div>';
+  if(bench.length){html+=`<div class="card"><h2>Rezerwa (${bench.length})</h2>${bench.map(p=>`<span class="tag">${esc(p.name)} — ${esc(p.sps.map(id=>spById(id)?.name).join('/'))} ${p.psp.map(pspBadge).join('')}</span>`).join(' ')}</div>`;
+    txt+=`**Reserve:** ${bench.map(p=>p.name).join(', ')}\n`;}
+  $('#aout').innerHTML=html;lastText=txt;
+  lastTeams={raid:raid.name,teams:res.map(tm=>{const ids=new Set();tm.mem.forEach(r=>r.list.forEach(x=>x&&ids.add(x.p.id)));
+    if(!tm.mem.length)tm.phases.forEach(g=>g.items.forEach(i=>i.list.forEach(x=>x&&ids.add(x.p.id))));return [...ids];})};
+  $('#ainfo').innerHTML=(noSp.length?`<div class="warn">Bez przypisanego SP (nie trafią na pozycje wymagające SP): ${esc(noSp.map(p=>p.name).join(', '))}. Dodaj im SP w zakładce Gracze.</div>`:'')+`Obecnych: ${n}, drużyn: ${teams}, miejsc w składzie: ${size*teams}. `+
+    (missing?`<span style="color:var(--bad)">Puste miejsca w składzie: ${missing}. </span>`:'<span style="color:var(--ok)">Skład pełny ✔ </span>')+
+    (missingPh?`<span style="color:var(--bad)">Nieobsadzone zadania w fazach: ${missingPh} (brak wolnej osoby z tym PSP/SP — każdy ma tylko 1 PSP na rajd).</span>`:'<span style="color:var(--ok)">Fazy obsadzone ✔</span>')+
+    (noPspN?` <span style="color:var(--bad)">Miejsca bez wymaganego PSP: ${noPspN}.</span>`:'');
+};
+$('#ahist').checked=!!S.useHist;$('#ahist').onchange=e=>{S.useHist=e.target.checked;save();};
+let lastTeams=null;
+$('#asave').onclick=()=>{
+  if(!lastTeams)return alert('Najpierw ułóż skład.');
+  if(S.live&&!confirm('Maraton już trwa. Zakończyć go i zacząć nowy z tym składem?'))return;
+  if(S.live)endMarathon(true);
+  const today=new Date().toISOString().slice(0,10);
+  const ids=lastTeams.teams.map((team,i)=>{const se={id:uid(),date:today,raid:lastTeams.raid,teamNo:lastTeams.teams.length>1?i+1:0,team,runs:[],ratings:{},notes:{}};S.history.unshift(se);return se.id;});
+  S.live={ids,picks:Object.fromEntries(ids.map(id=>[id,[]]))};S.lastSummary=null;
+  save();renderLive();$('#live').scrollIntoView({behavior:'smooth'});
+};
+const MEDAL=['🥇','🥈','🥉'];
+function sessionStats(ses){const st={};for(const se of ses){for(const id of se.team)st[id]??={runs:se.runs.length,t:[0,0,0],pts:0};
+  for(const r of se.runs)r.top.forEach((id,i)=>{if(id&&st[id]){st[id].t[i]++;st[id].pts+=3-i;}});}
+  return Object.entries(st).map(([id,x])=>({id,name:pname(id),...x})).sort((a,b)=>b.pts-a.pts||b.t[0]-a.t[0]||a.name.localeCompare(b.name));}
+function statTable(rows){return `<table style="width:auto"><thead><tr><th>#</th><th>Gracz</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Punkty</th><th>% top 3</th></tr></thead><tbody>${
+  rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${r.t[0]}</td><td>${r.t[1]}</td><td>${r.t[2]}</td><td><b>${r.pts}</b></td><td>${r.runs?Math.round((r.t[0]+r.t[1]+r.t[2])/r.runs*100)+'%':'—'}</td></tr>`).join('')}</tbody></table>`;}
+function renderLive(){
+  if(!S.live){$('#live').innerHTML=S.lastSummary||'';return;}
+  const ses=S.live.ids.map(id=>S.history.find(x=>x.id===id)).filter(Boolean);
+  if(!ses.length){S.live=null;save();return renderLive();}
+  $('#live').innerHTML=ses.map(se=>{const pk=S.live.picks[se.id]||[];
+    return `<div class="card livecard" data-live="${se.id}">
+      <h2 style="display:flex;justify-content:space-between"><span>🔴 Maraton trwa — ${esc(se.raid)}${se.teamNo?' — Drużyna '+se.teamNo:''}</span><span>Rajd #${se.runs.length+1}</span></h2>
+      <p class="mut small">Kliknij 3 graczy w kolejności z okienka obrażeń: pierwszy klik = 🥇, drugi = 🥈, trzeci = 🥉. Kliknięcie ponownie odznacza.</p>
+      <div>${se.team.map(id=>{const i=pk.indexOf(id);return `<button class="pick ${i>=0?'on':''}" data-pick="${id}"><span class="medal">${i>=0?MEDAL[i]:'▫'}</span>${esc(pname(id))}</button>`;}).join('')}</div>
+      <div class="row" style="margin-top:10px"><button class="b" data-confirm ${pk.length?'':'disabled style="opacity:.5"'}>✔ Zatwierdź rajd #${se.runs.length+1}</button>
+        <button class="g" data-clear>Wyczyść zaznaczenie</button>
+        ${se.runs.length?`<button class="g" data-undo>↶ Cofnij ostatni rajd</button>`:''}
+        <span class="mut small">Zapisane rajdy: ${se.runs.length}</span></div>
+      ${se.runs.length?`<details style="margin-top:8px" open><summary class="small">Wyniki na bieżąco</summary>${statTable(sessionStats([se]).filter(r=>r.pts))}</details>`:''}
+    </div>`;}).join('')+`<div class="row"><button class="b" id="liveEnd" style="background:var(--bad);color:#fff">⏹ Koniec maratonu</button></div>`;
+}
+$('#live').addEventListener('click',e=>{
+  if(e.target.closest('#liveEnd')){if(confirm('Zakończyć maraton i podliczyć wyniki?'))endMarathon();return;}
+  if(e.target.closest('#sumCopy')){navigator.clipboard.writeText(S.lastSummaryText||'').then(()=>alert('Skopiowano!'));return;}
+  if(e.target.closest('#sumHist')){document.querySelector('nav button[data-t=history]').click();return;}
+  if(e.target.closest('#sumClose')){S.lastSummary=null;save();renderLive();return;}
+  const card=e.target.closest('[data-live]');if(!card||!S.live)return;
+  const se=S.history.find(x=>x.id===card.dataset.live);const pk=S.live.picks[se.id]??=[];
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.pick){const i=pk.indexOf(b.dataset.pick);if(i>=0)pk.splice(i,1);else if(pk.length<3)pk.push(b.dataset.pick);}
+  else if(b.hasAttribute('data-confirm')){if(!pk.length)return;se.runs.push({top:[pk[0]||'',pk[1]||'',pk[2]||'']});S.live.picks[se.id]=[];}
+  else if(b.hasAttribute('data-clear'))S.live.picks[se.id]=[];
+  else if(b.hasAttribute('data-undo')){if(confirm('Usunąć wynik ostatniego rajdu?'))se.runs.pop();}
+  else return;
+  save();renderLive();
+});
+function endMarathon(silent){
+  const ses=S.live.ids.map(id=>S.history.find(x=>x.id===id)).filter(Boolean);
+  S.live=null;
+  // puste sesje (0 rajdów) nie zaśmiecają bazy
+  S.history=S.history.filter(x=>!(ses.includes(x)&&!x.runs.length));
+  const done=ses.filter(x=>x.runs.length);
+  if(silent||!done.length){S.lastSummary=null;save();renderLive();renderHistory();return;}
+  let html='<div class="card livecard"><h2>🏁 Podsumowanie maratonu</h2>',txt='';
+  for(const se of done){const rows=sessionStats([se]);
+    html+=`<h3>${esc(se.raid)}${se.teamNo?' — Drużyna '+se.teamNo:''} — ${se.runs.length} rajdów</h3>`+statTable(rows);
+    txt+=`**Marathon summary — ${se.raid}${se.teamNo?' — Team '+se.teamNo:''} (${se.runs.length} raids)**\n`+
+      rows.filter(r=>r.pts).map((r,i)=>`${i+1}. ${r.name} — ${r.pts} pts (🥇${r.t[0]} 🥈${r.t[1]} 🥉${r.t[2]})`).join('\n')+'\n\n';}
+  html+=`<div class="row" style="margin-top:10px"><button class="b" id="sumCopy">Kopiuj podsumowanie na Discorda</button><button class="g" id="sumHist">Zobacz bazę graczy</button><button class="g" id="sumClose">Zamknij</button></div>
+    <p class="mut small">Oceny 1–5 i notatki możesz dodać w zakładce Historia.</p></div>`;
+  S.lastSummary=html;S.lastSummaryText=txt;save();renderLive();renderHistory();
+}
+$('#acopy').onclick=()=>{if(!lastText)return alert('Najpierw ułóż skład.');navigator.clipboard.writeText(lastText).then(()=>alert('Skopiowano!'));};
+
+/* ===================== EDYTOR RAJDÓW ===================== */
+let curRaid=null;
+function renderRaidSel(){
+  if(!S.raids.find(r=>r.id===curRaid))curRaid=S.raids[0]?.id;
+  $('#rsel').innerHTML=S.raids.map(r=>`<option value="${r.id}" ${r.id===curRaid?'selected':''}>${esc(r.name)}</option>`).join('');
+  renderRaidEdit();renderAssignSel();
+}
+function allTags(){return [...new Set([...S.sps.flatMap(s=>s.tags),...S.players.flatMap(p=>p.tags)])].sort();}
+function renderRaidEdit(){
+  const r=S.raids.find(x=>x.id===curRaid);if(!r){$('#redit').innerHTML='';return;}
+  const elOpt=(v)=>`<option value="">—</option>`+Object.entries(ELS).map(([k,n])=>`<option value="${k}" ${v===k?'selected':''}>${n}</option>`).join('');
+  $('#redit').innerHTML=`
+   <div class="row"><label>Nazwa <input data-r="name" value="${esc(r.name)}"></label>
+     <label>Żywioł bossa <select data-r="bossEl">${elOpt(r.bossEl)}</select></label>
+     <label>Preferowany żywioł DD <select data-r="prefEl">${elOpt(r.prefEl)}</select></label>
+     <span class="mut small">Skład: ${raidSize(r)} os.</span></div>
+   <div class="row"><label>Preferuj SP z tagiem <input data-r="prefTag" value="${esc(r.prefTag||'')}" placeholder="np. debuff" style="width:90px"></label></div>
+   <div class="row"><span>PSP mile widziane (gracze z nimi mają pierwszeństwo):</span>${Object.keys(PSP).map(k=>`<label>${pspBadge(k)} <input type="checkbox" data-nice="${k}" ${(r.pspNice||[]).includes(k)?'checked':''}></label>`).join(' ')}</div>
+   <div class="row"><label style="flex:1">Notatka <input data-r="note" value="${esc(r.note||'')}" style="width:100%"></label></div>
+   <h3>Role</h3>
+   <p class="mut small"><b>Podgrupa</b> dzieli skład (np. FIRE / WATER TEAM). <b>Żywioł SP</b> = na tę pozycję tylko SP tego żywiołu. <b>Sekcja pusta = SKŁAD</b> (każda pozycja to osobna osoba, np. 12× DD). <b>Sekcja START / MID / BOSS…</b> = zadanie w tej fazie dla kogoś ze składu (te same osoby w każdej fazie). Gracz ma max 1 zadanie na fazę, a ponieważ <b>każdy bierze tylko 1 PSP na cały rajd</b>, dostanie najwyżej jedno zadanie z PSP (np. ELE na starcie → w midzie i na bossie już żadnego PSP). <b>Opcj.</b> = pozycja opcjonalna (np. dodatkowy debuff): obsadzana dopiero, gdy wszystkie wymagane (PRI/SEC/ELE/Jinn…) są pełne. PSP „dowolny dodatkowy” = każdy PSP oznaczony w bazie jako dodatkowy (Akhenaton, Shadowfall, Hip Swing…). <b>PSP w sekcji</b>: kto ma tę pozycję, bierze PSP tylko w podanej sekcji i ma tam pierwszeństwo (L1 → START: bije mini bossa z Berserkerem i DD, potem dźwignia; L2+PT, L3 → BOSS). <b>SP preferowane</b> = mają pierwszeństwo (np. Scout na L2+PT i L3 — skacze przez ściany; DG jako DD na START — mało AoE, na MID mało przydatny). <b>SP awaryjne</b> = używane tylko, gdy nie ma nikogo z SP podstawowym (np. dźwignie: tag „niewidka” = Scout, Fog Hunter, Assassin, Demon Warrior; awaryjnie Dark Gunner). <b>Zadanie</b> to np. dźwignia (L1, L2+PT, L3) albo BA — pokazuje się jako [L1]. Gracz pasuje do pozycji, gdy: ma <b>wymagany PSP</b> (jeśli ustawiony) <b>oraz</b> ma SP z listy „Konkretne SP” albo SP z jednym z tagów, albo sam ma ten tag (np. „zwiad”). Bez tagów i SP = dowolny SP. Np. START / PRI / Konkretne SP: Berserker / PSP: PRI.</p>
+   <table><thead><tr><th>Sekcja</th><th>Podgrupa</th><th>Żywioł SP</th><th>Pozycja</th><th>Zadanie</th><th>Ilu</th><th>Wymagany PSP</th><th>Opcj.</th><th>PSP w sekcji</th><th>Tagi</th><th>Konkretne SP</th><th>SP preferowane</th><th>SP awaryjne</th><th></th></tr></thead><tbody>
+   ${r.roles.map((ro,i)=>`<tr data-i="${i}">
+     <td><input data-ro="group" value="${esc(ro.group||'')}" list="grouplist" style="width:90px"></td>
+     <td><input data-ro="team" value="${esc(ro.team||'')}" placeholder="—" style="width:90px" title="Np. FIRE TEAM — grupuje osoby w składzie"></td>
+     <td><select data-ro="el"><option value="">dowolny</option>${Object.entries(ELS).filter(([k])=>k!=='none').map(([k,v])=>`<option value="${k}" ${ro.el===k?'selected':''}>${v}</option>`).join('')}</select></td>
+     <td><input data-ro="name" value="${esc(ro.name)}" style="width:120px"></td>
+     <td><input data-ro="task" value="${esc(ro.task||'')}" placeholder="np. L1" style="width:70px"></td>
+     <td><input data-ro="count" type="number" min="0" value="${ro.count}" style="width:60px"></td>
+     <td><select data-ro="psp"><option value="">—</option><option value="+extra" ${ro.psp==='+extra'?'selected':''}>dowolny dodatkowy</option>${Object.keys(PSP).map(k=>`<option value="${k}" ${ro.psp===k?'selected':''}>${esc(PSP[k].label)}</option>`).join('')}</select></td>
+     <td><input type="checkbox" data-ro="optional" ${ro.optional?'checked':''} title="Opcjonalne: obsadzane dopiero, gdy wszystkie wymagane pozycje są pełne"></td>
+     <td><input data-ro="pspIn" value="${esc(ro.pspIn||'')}" list="grouplist" placeholder="—" style="width:80px" title="Kto ma tę pozycję, używa swojego PSP tylko w tej sekcji (i ma tam pierwszeństwo)"></td>
+     <td><input data-ro="tags" value="${esc(ro.tags.join(' '))}" list="taglist" style="width:110px"></td>
+     <td>${ro.sps.map(id=>`<span class="tag">${esc(spById(id)?.name||id)} <a href="#" data-rsp="${id}" style="color:var(--bad)">×</a></span>`).join('')}
+         <select data-ro="addsp" style="width:90px">${spOptions('')}</select></td>
+     <td>${(ro.spsPref||[]).map(id=>`<span class="tag">${esc(spById(id)?.name||id)} <a href="#" data-rpf="${id}" style="color:var(--bad)">×</a></span>`).join('')}
+         <select data-ro="addpf" style="width:90px">${spOptions('')}</select></td>
+     <td>${(ro.spsFallback||[]).map(id=>`<span class="tag">${esc(spById(id)?.name||id)} <a href="#" data-rfb="${id}" style="color:var(--bad)">×</a></span>`).join('')}
+         <select data-ro="addfb" style="width:90px">${spOptions('')}</select></td>
+     <td>${i?`<button class="g" data-mv="${i}" title="Wyżej">↑</button>`:''}<button class="x" data-rdel>×</button></td></tr>`).join('')}
+   </tbody></table>
+   <datalist id="grouplist">${['START','MID','BOSS','DŹWIGNIE',...new Set(r.roles.map(x=>x.group).filter(Boolean))].filter((v,i,a)=>a.indexOf(v)===i).map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
+   <datalist id="taglist">${allTags().map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+   <div class="row" style="margin-top:8px"><button class="g" id="roleAdd">+ Rola</button></div>`;
+}
+$('#rsel').onchange=e=>{curRaid=e.target.value;renderRaidEdit();};
+$('#rnew').onclick=()=>{const r={id:uid(),name:'Nowy rajd',bossEl:'',prefEl:'',note:'',pspNice:[],roles:[{group:'START',name:'PRI',count:1,tags:[],sps:[],psp:'pri'},{group:'START',name:'ELE',count:1,tags:[],sps:[],psp:'ele'},{group:'START',name:'SEC',count:1,tags:[],sps:[],psp:'sec'},{group:'',name:'Damage Dealer',count:7,tags:['dd'],sps:[]}]};S.raids.push(r);curRaid=r.id;save();renderRaidSel();};
+$('#rdup').onclick=()=>{const o=S.raids.find(x=>x.id===curRaid);if(!o)return;const r=clone(o);r.id=uid();r.name+=' (kopia)';S.raids.push(r);curRaid=r.id;save();renderRaidSel();};
+$('#rdel').onclick=()=>{const o=S.raids.find(x=>x.id===curRaid);if(!o||!confirm('Usunąć rajd '+o.name+'?'))return;S.raids=S.raids.filter(x=>x!==o);save();renderRaidSel();};
+$('#redit').addEventListener('change',e=>{
+  const r=S.raids.find(x=>x.id===curRaid);const t=e.target;
+  if(t.dataset.r){r[t.dataset.r]=t.value;}
+  else if(t.dataset.nice){r.pspNice=(r.pspNice||[]).filter(x=>x!==t.dataset.nice);if(t.checked)r.pspNice.push(t.dataset.nice);}
+  else if(t.dataset.ro){const ro=r.roles[+t.closest('tr').dataset.i];const f=t.dataset.ro;
+    if(f==='count')ro.count=Math.max(0,+t.value||0);
+    else if(f==='tags')ro.tags=t.value.toLowerCase().split(/[\s,]+/).filter(Boolean);
+    else if(f==='addsp'){if(t.value&&!ro.sps.includes(t.value))ro.sps.push(t.value);}
+    else if(f==='optional')ro.optional=t.checked;
+    else if(f==='addpf'){ro.spsPref??=[];if(t.value&&!ro.spsPref.includes(t.value))ro.spsPref.push(t.value);}
+    else if(f==='addfb'){ro.spsFallback??=[];if(t.value&&!ro.spsFallback.includes(t.value))ro.spsFallback.push(t.value);}
+    else ro[f]=t.value;}
+  save();renderRaidEdit();renderAssignSel();
+});
+$('#redit').addEventListener('click',e=>{
+  const r=S.raids.find(x=>x.id===curRaid);const t=e.target;
+  if(t.id==='roleAdd'){r.roles.push({group:r.roles.at(-1)?.group||'',name:'Pozycja',count:1,tags:[],sps:[],psp:''});}
+  else if(t.dataset.rpf){e.preventDefault();const ro=r.roles[+t.closest('tr').dataset.i];ro.spsPref=ro.spsPref.filter(x=>x!==t.dataset.rpf);}
+  else if(t.dataset.rfb){e.preventDefault();const ro=r.roles[+t.closest('tr').dataset.i];ro.spsFallback=ro.spsFallback.filter(x=>x!==t.dataset.rfb);}
+  else if(t.dataset.rsp){e.preventDefault();const ro=r.roles[+t.closest('tr').dataset.i];ro.sps=ro.sps.filter(x=>x!==t.dataset.rsp);}
+  else if(t.hasAttribute('data-rdel')){r.roles.splice(+t.closest('tr').dataset.i,1);}
+  else if(t.dataset.mv){const i=+t.dataset.mv;[r.roles[i-1],r.roles[i]]=[r.roles[i],r.roles[i-1]];}
+  else return;
+  save();renderRaidEdit();renderAssignSel();
+});
+
+/* ===================== BAZA SP ===================== */
+function renderSps(){
+  $('#sptable').innerHTML=S.sps.map((s,i)=>`<tr data-i="${i}">
+   <td><input data-s="name" value="${esc(s.name)}" style="width:150px"></td>
+   <td><select data-s="cls">${CLASSES.map(c=>`<option ${c===s.cls?'selected':''}>${c}</option>`).join('')}</select></td>
+   <td><select data-s="el">${Object.entries(ELS).map(([k,v])=>`<option value="${k}" ${k===s.el?'selected':''}>${v}</option>`).join('')}</select> ${elBadge(s.el)}</td>
+   <td><input data-s="tags" value="${esc(s.tags.join(', '))}" style="width:170px"></td>
+   <td><input data-s="aliases" value="${esc((s.aliases||[]).join(', '))}" style="width:170px"></td>
+   <td><button class="x" data-sdel>×</button></td></tr>`).join('');
+}
+$('#sptable').addEventListener('change',e=>{
+  const s=S.sps[+e.target.closest('tr').dataset.i];const f=e.target.dataset.s;
+  if(f==='tags'||f==='aliases')s[f]=e.target.value.toLowerCase().split(',').map(x=>x.trim()).filter(Boolean);
+  else s[f]=e.target.value;
+  save();renderSps();renderPlayers();
+});
+$('#sptable').addEventListener('click',e=>{
+  if(!e.target.hasAttribute('data-sdel'))return;const i=+e.target.closest('tr').dataset.i;
+  if(!confirm('Usunąć SP '+S.sps[i].name+'?'))return;S.sps.splice(i,1);save();renderSps();
+});
+$('#spAdd').onclick=()=>{S.sps.push({id:uid(),name:'Nowy SP',cls:'Wojownik',el:'none',tags:['dd'],aliases:[]});save();renderSps();};
+
+/* ===================== ZAPIS ===================== */
+$('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='maraton-dane.json';a.click();};
+// łączenie danych: gracze po nicku, historia sumowana (bez duplikatów sesji), brakujące rajdy/SP/PSP dopisywane
+function mergeData(d){
+  const st={players:0,newPlayers:0,sessions:0,dupSessions:0,raids:0};
+  const idMap={};
+  for(const ip of d.players||[]){
+    const ex=findPlayer(ip.name);
+    if(ex){idMap[ip.id]=ex.id;for(const x of ip.sps||[])if(!ex.sps.includes(x))ex.sps.push(x);for(const k of ip.psp||[])if(!ex.psp.includes(k))ex.psp.push(k);st.players++;}
+    else{const np={...clone(ip),id:S.players.some(p=>p.id===ip.id)?uid():ip.id,archived:true,active:false};idMap[ip.id]=np.id;S.players.push(np);st.newPlayers++;}
+  }
+  const mp=id=>idMap[id]||id;
+  for(const se of d.history||[]){
+    if(S.history.some(x=>x.id===se.id)){st.dupSessions++;continue;}
+    const n=clone(se);n.team=n.team.map(mp);n.runs=(n.runs||[]).map(r=>({top:r.top.map(id=>id?mp(id):'')}));
+    n.ratings=Object.fromEntries(Object.entries(n.ratings||{}).map(([k,v])=>[mp(k),v]));n.notes=Object.fromEntries(Object.entries(n.notes||{}).map(([k,v])=>[mp(k),v]));
+    S.history.push(n);st.sessions++;
+  }
+  S.history.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  for(const r of d.raids||[])if(!S.raids.some(x=>x.id===r.id)){S.raids.push(clone(r));st.raids++;}
+  for(const sp of d.sps||[])if(!S.sps.some(x=>x.id===sp.id))S.sps.push(clone(sp));
+  for(const [k,v] of Object.entries(d.psp||{}))if(!S.psp[k])S.psp[k]=clone(v);
+  return st;
+}
+$('#imp').onchange=e=>{const f=e.target.files[0];if(!f)return;const mode=document.querySelector('input[name=impMode]:checked').value;
+  f.text().then(t=>{let d;try{d=JSON.parse(t);if(!d.sps||!d.raids)throw 0;}catch{alert('Zły plik.');return;}
+    if(mode==='replace'){if(!confirm('Zastąpić wszystkie twoje dane danymi z pliku?'))return;S=migrate(d);S.history??=[];S.players??=[];save();renderAll();alert('Zaimportowano.');}
+    else{d=migrate(JSON.parse(t));PSP=S.psp;const st=mergeData(d);save();renderAll();
+      $('#impMsg').innerHTML=`<span style="color:var(--ok)">Połączono: ${st.sessions} nowych maratonów${st.dupSessions?` (${st.dupSessions} już było — pominięte)`:''}, ${st.players} wspólnych graczy, ${st.newPlayers} nowych (w archiwum)${st.raids?`, ${st.raids} nowych rajdów`:''}.</span>`;}
+    e.target.value='';});
+};
+$('#reset').onclick=()=>{if(!confirm('Przywrócić domyślną bazę SP, PSP i rajdy? Gracze zostaną.'))return;S.sps=clone(DEFAULT_SPS);S.raids=clone(DEFAULT_RAIDS);S.psp=clone(DEFAULT_PSP);save();renderAll();};
+
+/* ===================== NAWIGACJA ===================== */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button,.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('#'+b.dataset.t).classList.add('on');
+  if(b.dataset.t==='raids')renderRaidEdit();
+  if(b.dataset.t==='history')renderHistory();
+});
+function renderPsp(){
+  $('#pspInfo').innerHTML=`<h3>PSP (karty partnera)</h3>
+   <p class="mut small">Jedna pozycja może grupować kilka kart o tym samym efekcie (jak ELE = Amon/Freya/Lucifer). Aliasy to słowa rozpoznawane przy szybkim dodawaniu.</p>
+   <table><thead><tr><th>Nazwa</th><th>Dodatkowy</th><th>Kolor</th><th>Karty / skille (po przecinku)</th><th>Aliasy</th><th>Opis</th><th></th></tr></thead><tbody>
+   ${Object.entries(PSP).map(([k,v])=>`<tr data-k="${k}"><td>${pspBadge(k)} <input data-pf="label" value="${esc(v.label)}" style="width:90px"></td>
+     <td><input type="checkbox" data-pf="extra" ${v.extra?'checked':''}></td>
+     <td><input type="color" data-pf="color" value="${esc(v.color||'#aaaaaa')}"></td>
+     <td><input data-pf="cards" value="${esc(v.cards.join(', '))}" style="width:220px"></td>
+     <td><input data-pf="alias" value="${esc(v.alias.join(', '))}" style="width:180px"></td>
+     <td><input data-pf="desc" value="${esc(v.desc)}" style="width:260px"></td>
+     <td><button class="x" data-pdel>×</button></td></tr>`).join('')}</tbody></table>
+   <div class="row" style="margin-top:6px"><button class="g" id="pspAdd">+ Dodaj PSP</button></div>`;
+}
+$('#pspInfo').addEventListener('change',e=>{const k=e.target.closest('tr')?.dataset.k;if(!k)return;const f=e.target.dataset.pf;
+  if(f==='extra')PSP[k].extra=e.target.checked;else if(f==='cards'||f==='alias')PSP[k][f]=e.target.value.split(',').map(x=>x.trim()).filter(Boolean);else PSP[k][f]=e.target.value;
+  save();renderPsp();renderPlayers();});
+$('#pspInfo').addEventListener('click',e=>{
+  if(e.target.id==='pspAdd'){const k=uid();PSP[k]={label:'Nowy PSP',color:'#aaaaaa',desc:'',cards:[],alias:[]};}
+  else if(e.target.hasAttribute('data-pdel')){const k=e.target.closest('tr').dataset.k;if(!confirm('Usunąć PSP '+PSP[k].label+'?'))return;delete PSP[k];
+    S.players.forEach(p=>p.psp=p.psp.filter(x=>x!==k));}
+  else return;
+  save();renderPsp();renderPlayers();});
+let rankSort='pts';
+const pname=id=>S.players.find(p=>p.id===id)?.name||'(usunięty)';
+function renderHistory(){
+  const st=histStats();
+  const cols=[['name','Gracz'],['sessions','Maratony'],['runs','Rajdy'],['t1','🥇'],['t2','🥈'],['t3','🥉'],['pts','Punkty'],['share','% top 3'],['avg','Ocena'],['notes','Notatki']];
+  const rows=Object.entries(st).map(([id,x])=>({id,name:pname(id),...x}));
+  rows.sort((a,b)=>rankSort==='name'?a.name.localeCompare(b.name):((b[rankSort]??-1)-(a[rankSort]??-1))||b.pts-a.pts);
+  $('#rank').innerHTML=`<thead><tr>${cols.map(([k,l])=>`<th data-sort="${k}" style="cursor:pointer">${l}${rankSort===k?' ▾':''}</th>`).join('')}</tr></thead><tbody>`+
+    (rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${r.sessions}</td><td>${r.runs}</td><td>${r.t1}</td><td>${r.t2}</td><td>${r.t3}</td><td><b>${r.pts}</b></td>
+      <td>${r.runs?Math.round(r.share*100)+'%':'—'}</td><td>${r.avg!=null?r.avg.toFixed(1):'—'}</td><td class="small mut">${esc(r.notes.slice(-3).join(' · '))}</td></tr>`).join('')
+     ||'<tr><td colspan="10" class="mut">Brak danych — ułóż skład i kliknij „Zapisz do historii”.</td></tr>')+'</tbody>';
+  $('#sessions').innerHTML=(S.history||[]).map(se=>{
+    const opts=sel=>'<option value="">—</option>'+se.team.map(id=>`<option value="${id}" ${id===sel?'selected':''}>${esc(pname(id))}</option>`).join('');
+    return `<div class="card" data-se="${se.id}">
+      <h2 style="display:flex;justify-content:space-between"><span>${esc(se.date)} — ${esc(se.raid)}${se.teamNo?' — Drużyna '+se.teamNo:''} <span class="mut small">(${se.runs.length} rajdów)</span></span>
+        <button class="x" data-sedel title="Usuń sesję">🗑</button></h2>
+      <div class="row"><input type="date" data-sf="date" value="${esc(se.date)}"><button class="b" data-run>+ Rajd (wpisz top 3)</button></div>
+      ${se.runs.length?`<table style="width:auto"><thead><tr><th>#</th><th>🥇 1.</th><th>🥈 2.</th><th>🥉 3.</th><th></th></tr></thead><tbody>
+        ${se.runs.map((r,i)=>`<tr data-run-i="${i}"><td>${i+1}</td>${[0,1,2].map(k=>`<td><select data-top="${k}">${opts(r.top[k])}</select></td>`).join('')}<td><button class="x" data-rundel>×</button></td></tr>`).join('')}
+      </tbody></table>`:'<p class="mut small">Po każdym rajdzie kliknij „+ Rajd” i wybierz top 3 z okienka obrażeń.</p>'}
+      <details style="margin-top:8px"><summary class="small">Oceny i notatki (opcjonalnie)</summary>
+      <table style="width:auto">${se.team.map(id=>`<tr data-pid="${id}"><td>${esc(pname(id))}</td>
+        <td><select data-rate>${['','1','2','3','4','5'].map(v=>`<option ${String(se.ratings?.[id]||'')===v?'selected':''}>${v}</option>`).join('')}</select></td>
+        <td><input data-note value="${esc(se.notes?.[id]||'')}" placeholder="np. mocny DMG, zawalił L2" style="width:260px"></td></tr>`).join('')}</table></details>
+    </div>`;}).join('');
+}
+$('#rank').addEventListener('click',e=>{const k=e.target.closest('th')?.dataset.sort;if(k){rankSort=k;renderHistory();}});
+$('#sessions').addEventListener('click',e=>{
+  const se=S.history.find(x=>x.id===e.target.closest('[data-se]')?.dataset.se);if(!se)return;
+  if(e.target.hasAttribute('data-run'))se.runs.push({top:['','','']});
+  else if(e.target.hasAttribute('data-rundel'))se.runs.splice(+e.target.closest('tr').dataset.runI,1);
+  else if(e.target.hasAttribute('data-sedel')){if(!confirm('Usunąć tę sesję z historii?'))return;S.history=S.history.filter(x=>x!==se);}
+  else return;
+  save();renderHistory();
+});
+$('#sessions').addEventListener('change',e=>{
+  const se=S.history.find(x=>x.id===e.target.closest('[data-se]')?.dataset.se);if(!se)return;const t=e.target;
+  if(t.dataset.top!==undefined){const r=se.runs[+t.closest('tr').dataset.runI];const k=+t.dataset.top;
+    if(t.value)r.top=r.top.map((x,i)=>i!==k&&x===t.value?'':x);  // ten sam gracz nie może być 2x w top 3
+    r.top[k]=t.value;}
+  else if(t.hasAttribute('data-rate')){se.ratings??={};se.ratings[t.closest('tr').dataset.pid]=t.value?+t.value:undefined;}
+  else if(t.hasAttribute('data-note')){se.notes??={};se.notes[t.closest('tr').dataset.pid]=t.value.trim();}
+  else if(t.dataset.sf==='date')se.date=t.value;
+  save();renderHistory();
+});
+function renderAll(){PSP=S.psp;if(!S.raids.find(r=>r.id===S.curRaid))S.curRaid=S.raids[0]?.id;renderHistory();renderLive();renderPlayers();renderRaidSel();renderSps();renderPsp();}
+renderAll();
+/* ===================== JĘZYK (PL / EN) ===================== */
+// Interfejs piszemy po polsku; w trybie EN tłumaczymy wyświetlany tekst (węzły tekstowe, placeholder/title, okienka).
+const EN_DICT={
+ '⚔ Maraton Raidów':'⚔ Raid Marathon','Maraton Raidów – NosTale':'Raid Marathon – NosTale',
+ 'Gracze':'Players','Skład':'Team','Rajdy':'Raids','Baza SP / PSP':'SP / PSP database','Historia':'History','Zapis / Import':'Save / Import',
+ // szybkie dodawanie
+ 'Szybkie dodawanie':'Quick add','Jedna linia = jeden gracz. Format:':'One line = one player. Format:','Nick, SP główne, SP zapasowe..., psp: …':'Nick, main SP, backup SPs..., psp: …',
+ 'Przykład:':'Example:','(pamiętaj: gracz bierze na rajd 1 PSP; jeśli ma kilka, wpisz wszystkie — program wybierze)':'(remember: a player brings 1 PSP per raid; if they have several, list them all — the tool will choose)',
+ 'PSP można wpisać jako grupę (':'PSP can be entered as a group (',', liczby':', numbers','= wszystkie) albo nazwą karty (np.':'= all of them) or by card name (e.g.',
+ '). Wielkość liter i literówki nie szkodzą. Opcjonalnie':'). Letter case and typos are fine. Optionally','nadpisuje żywioł gracza.':'overrides the player\'s element.',
+ 'żywioł: cień':'el: shadow','Dodaj':'Add',
+ // OCR
+ '📷 Wklej screena wiadomości z gry':'📷 Paste a screenshot of an in-game message','Zrób screena wiadomości (np.':'Take a screenshot of the message (e.g.',
+ ') i wklej go tutaj':') and paste it here',', przeciągnij plik albo wybierz go z dysku. Liczby':', drag the file in or pick it from disk. Numbers',
+ '= wszystkie PSP. Na screenie może być cały czat — program wybierze tylko zapisy na rajd, a resztę (spam) pominie. Przy pierwszym użyciu strona pobiera moduł do odczytu tekstu (potrzebny internet, ~10 MB, potem z pamięci przeglądarki).':
+  '= all PSPs. The screenshot can show the whole chat — the tool picks only raid sign-ups and skips the rest (spam). On first use the page downloads the text-reading module (internet needed, ~10 MB, then cached by the browser).',
+ 'Kliknij tu i wciśnij Ctrl+V':'Click here and press Ctrl+V','albo przeciągnij obrazek':'or drag an image in','Rozpoznaj graczy z tekstu':'Recognise players from text',
+ 'Tu pojawi się odczytany tekst — popraw go, jeśli coś źle odczytało, i kliknij „Rozpoznaj”.':'The recognised text will appear here — fix any mistakes and click “Recognise”.',
+ 'Wczytuję moduł OCR…':'Loading the OCR module…','Odczytuję tekst…':'Reading text…','Gotowe. Sprawdź tekst poniżej (popraw literówki, jeśli są) i zaznacz, kogo dodać.':'Done. Check the text below (fix typos if any) and tick who to add.',
+ 'Nie znalazłem w tekście żadnego zapisu (SP / PSP). Popraw tekst i kliknij „Rozpoznaj”.':'No sign-up (SP / PSP) found in the text. Fix the text and click “Recognise”.',
+ 'Nie udało się pobrać modułu OCR (brak internetu?)':'Could not download the OCR module (no internet?)','— możesz też przepisać wiadomość do pola poniżej.':'— you can also type the message into the box below.',
+ 'Dodaj zaznaczonych':'Add selected','Nie rozpoznano':'Not recognised','(już jest — uzupełnię)':'(already listed — will update)','brak':'none','+ dodaj do listy':'+ add to list',
+ // gracze
+ 'Rajd, pod który zapisujesz:':'Raid you are signing up for:','Wszyscy obecni':'Everyone present','Nikt obecny':'Nobody present','+ Pusty gracz':'+ Empty player',
+ '🧹 Wyczyść listę (nowy rajd)':'🧹 Clear list (new raid)','pokaż archiwum (':'show archive (','Wyciągnij SP z nicków':'Extract SPs from nicknames','Szukaj...':'Search...',
+ 'Obecny':'Present','Nick':'Nick','Klasa':'Class','SP główne':'Main SP','SP drugie':'Second SP','Żywioł':'Element','PSP debuffy':'PSP debuffs','Pasuje na (w tym rajdzie)':'Fits (in this raid)',
+ 'Tagi gracza':'Player tags','opcjonalnie':'optional','nic — brak pasującego SP/PSP':'nothing — no matching SP/PSP','Brak graczy — dodaj kogoś wyżej.':'No players — add someone above.',
+ 'Nowy rajd: czyści listę. Gracze idą do archiwum (historia zostaje), a po ponownym zapisie wracają z SP/PSP.':'New raid: clears the list. Players go to the archive (history is kept) and come back with their SP/PSP when they sign up again.',
+ 'Np. „Yarisu serk pri” → nick Yarisu, SP Berserker':'E.g. “Yarisu serk pri” → nick Yarisu, SP Berserker','SP z różnych klas — to na pewno ta sama postać?':'SPs from different classes — is this really the same character?',
+ 'Przywróć na listę':'Restore to list','Ustaw jako główne':'Set as main','główne':'main','zapasowe':'backup',
+ 'Wojownik':'Swordsman','Łucznik':'Archer','Mag':'Mage','Mistrz Walki':'Martial Artist',
+ 'Ogień':'Fire','Woda':'Water','Światło':'Light','Cień':'Shadow','Brak':'None','dowolny':'any','dowolny dodatkowy':'any extra','+ SP…':'+ SP…',
+ 'Akhenaton (pies)':'Akhenaton (dog)',
+ // skład
+ 'Rajd:':'Raid:','Liczba drużyn:':'Number of teams:','auto (ile się da z obecnych)':'auto (as many as possible)','Ułóż skład':'Build team','Kopiuj na Discorda':'Copy for Discord',
+ '▶ Start maratonu':'▶ Start marathon','pierwszeństwo wg historii':'priority by history',
+ 'Gracze z lepszymi wynikami (top 3, oceny) mają pierwszeństwo, gdy chętnych jest więcej niż miejsc':'Players with better results (top 3, ratings) get priority when there are more players than slots',
+ 'SKŁAD':'TEAM','DŹWIGNIE':'LEVERS','POZOSTALI':'OTHERS','Dźwignia':'Lever','Debuff dod.':'Extra debuff','dodatkowy':'extra','Zwiadowca':'Scout','Pozycja':'Position','Rola':'Role',
+ '— brak —':'— empty —','— (opcjonalne, brak wolnej osoby) —':'— (optional, nobody free) —','(zap.)':'(backup)','(awaryjnie)':'(fallback)','(bez PSP)':'(no PSP)','cel:':'target:',
+ 'Skład pełny ✔':'Team full ✔','Fazy obsadzone ✔':'Phases filled ✔','Wszystkie pozycje obsadzone ✔':'All positions filled ✔',
+ // live / podsumowanie
+ 'Kliknij 3 graczy w kolejności z okienka obrażeń: pierwszy klik = 🥇, drugi = 🥈, trzeci = 🥉. Kliknięcie ponownie odznacza.':'Click 3 players in the order shown in the damage window: first click = 🥇, second = 🥈, third = 🥉. Click again to unselect.',
+ 'Wyczyść zaznaczenie':'Clear selection','⏹ Koniec maratonu':'⏹ End marathon','↶ Cofnij ostatni rajd':'↶ Undo last raid','Wyniki na bieżąco':'Live results','Punkty':'Points','Punkty ▾':'Points ▾',
+ '🏁 Podsumowanie maratonu':'🏁 Marathon summary','Kopiuj podsumowanie na Discorda':'Copy summary for Discord','Zobacz bazę graczy':'See player database','Zamknij':'Close',
+ 'Oceny 1–5 i notatki możesz dodać w zakładce Historia.':'You can add 1–5 ratings and notes in the History tab.',
+ // rajdy (edytor)
+ 'Składy domyślne to szablony do uzupełnienia — sprawdź na wiki Olympusa liczbę graczy, potrzebne role i żywioł bossa i popraw tutaj. Zapisuje się automatycznie.':'Default teams are templates — check the Olympus wiki for player count, roles and boss element and adjust here. Saved automatically.',
+ '+ Nowy rajd':'+ New raid','Duplikuj':'Duplicate','Usuń rajd':'Delete raid','Nazwa':'Name','Żywioł bossa':'Boss element','Preferowany żywioł DD':'Preferred DD element','Preferuj SP z tagiem':'Prefer SPs with tag','np. debuff':'e.g. debuff',
+ 'PSP mile widziane (gracze z nimi mają pierwszeństwo):':'Welcome PSPs (players with them get priority):','Notatka':'Note','Role':'Roles','Podgrupa':'Subgroup','dzieli skład (np. FIRE / WATER TEAM).':'splits the team (e.g. FIRE / WATER TEAM).',
+ 'Żywioł SP':'SP element','= na tę pozycję tylko SP tego żywiołu.':'= only SPs of this element for this position.','Sekcja pusta = SKŁAD':'Empty section = TEAM','(każda pozycja to osobna osoba, np. 12× DD).':'(each position is a separate person, e.g. 12× DD).',
+ 'Sekcja START / MID / BOSS…':'Section START / MID / BOSS…','= zadanie w tej fazie dla kogoś ze składu (te same osoby w każdej fazie). Gracz ma max 1 zadanie na fazę, a ponieważ':'= a task in this phase for someone from the team (the same people in every phase). A player has max 1 task per phase, and since',
+ 'każdy bierze tylko 1 PSP na cały rajd':'everyone brings only 1 PSP for the whole raid',', dostanie najwyżej jedno zadanie z PSP (np. ELE na starcie → w midzie i na bossie już żadnego PSP).':', they get at most one PSP task (e.g. ELE at start → no PSP at mid or boss).',
+ 'Opcj.':'Opt.','= pozycja opcjonalna (np. dodatkowy debuff): obsadzana dopiero, gdy wszystkie wymagane (PRI/SEC/ELE/Jinn…) są pełne. PSP „dowolny dodatkowy” = każdy PSP oznaczony w bazie jako dodatkowy (Akhenaton, Shadowfall, Hip Swing…).':
+  '= optional position (e.g. extra debuff): filled only once all required ones (PRI/SEC/ELE/Jinn…) are filled. PSP “any extra” = any PSP marked as extra in the database (Akhenaton, Shadowfall, Hip Swing…).',
+ 'PSP w sekcji':'PSP in section',': kto ma tę pozycję, bierze PSP tylko w podanej sekcji i ma tam pierwszeństwo (L1 → START: bije mini bossa z Berserkerem i DD, potem dźwignia; L2+PT, L3 → BOSS).':
+  ': whoever has this position uses their PSP only in that section and gets priority there (L1 → START: fights the mini boss with the Berserker and DD, then the lever; L2+PT, L3 → BOSS).',
+ 'SP preferowane':'Preferred SPs','= mają pierwszeństwo (np. Scout na L2+PT i L3 — skacze przez ściany; DG jako DD na START — mało AoE, na MID mało przydatny).':'= get priority (e.g. Scout on L2+PT and L3 — jumps over walls; DG as DD at START — little AoE, not much use at MID).',
+ 'SP awaryjne':'Fallback SPs','= używane tylko, gdy nie ma nikogo z SP podstawowym (np. dźwignie: tag „niewidka” = Scout, Fog Hunter, Assassin, Demon Warrior; awaryjnie Dark Gunner).':'= used only when nobody has a main SP (e.g. levers: tag “niewidka” (invisibility) = Scout, Fog Hunter, Assassin, Demon Warrior; fallback Dark Gunner).',
+ 'Zadanie':'Task','to np. dźwignia (L1, L2+PT, L3) albo BA — pokazuje się jako [L1]. Gracz pasuje do pozycji, gdy: ma':'is e.g. a lever (L1, L2+PT, L3) or BA — shown as [L1]. A player fits a position when they have the',
+ 'wymagany PSP':'required PSP','(jeśli ustawiony)':'(if set)','oraz':'and',
+ 'ma SP z listy „Konkretne SP” albo SP z jednym z tagów, albo sam ma ten tag (np. „zwiad”). Bez tagów i SP = dowolny SP. Np. START / PRI / Konkretne SP: Berserker / PSP: PRI.':
+  'have an SP from “Specific SPs” or an SP with one of the tags, or the player has the tag. No tags and SPs = any SP. E.g. START / PRI / Specific SPs: Berserker / PSP: PRI.',
+ 'Sekcja':'Section','Ilu':'Count','Wymagany PSP':'Required PSP','Tagi':'Tags','Konkretne SP':'Specific SPs','+ Rola':'+ Role','Wyżej':'Up','np. L1':'e.g. L1',
+ 'Np. FIRE TEAM — grupuje osoby w składzie':'E.g. FIRE TEAM — groups people in the team','Opcjonalne: obsadzane dopiero, gdy wszystkie wymagane pozycje są pełne':'Optional: filled only when all required positions are filled',
+ 'Kto ma tę pozycję, używa swojego PSP tylko w tej sekcji (i ma tam pierwszeństwo)':'Whoever has this position uses their PSP only in this section (and gets priority there)',
+ // baza SP / PSP
+ 'Żywioły i role SP wpisane z pamięci — zweryfikuj z wiki Olympusa. Tagi ról (np.':'SP elements and roles were entered from memory — verify on the Olympus wiki. Role tags (e.g.',
+ ') decydują, na jakie role w rajdzie dany SP się nadaje.':') decide which raid roles an SP fits.','PSP (karty partnera)':'PSP (partner cards)',
+ 'Jedna pozycja może grupować kilka kart o tym samym efekcie (jak ELE = Amon/Freya/Lucifer). Aliasy to słowa rozpoznawane przy szybkim dodawaniu.':'One entry can group several cards with the same effect (like ELE = Amon/Freya/Lucifer). Aliases are the words recognised in quick add.',
+ 'Dodatkowy':'Extra','Kolor':'Colour','Karty / skille (po przecinku)':'Cards / skills (comma separated)','Aliasy':'Aliases','Opis':'Description','+ Dodaj PSP':'+ Add PSP','+ Dodaj SP':'+ Add SP',
+ 'Tagi ról (po przecinku)':'Role tags (comma separated)','Aliasy (skróty do szybkiego dodawania)':'Aliases (shortcuts for quick add)',
+ 'Wszystkie odporności na żywioły −20':'All elemental resistances −20','100% szansy: +20% otrzymywanych obrażeń (magia/dystans/wręcz), uniki −200':'100% chance: +20% damage taken (magic/ranged/melee), dodge −200',
+ '25% szansy: +20% otrzymywanych obrażeń (magia/dystans/wręcz)':'25% chance: +20% damage taken (magic/ranged/melee)',
+ 'Curse of the Pharaoh: 100% szansy +10% otrzymywanych obrażeń z żywiołów, płaskie obrażenia żywiołów celu −10%, co 2 s HP −(poziom×8)':'Curse of the Pharaoh: 100% chance +10% elemental damage taken, target\'s flat elemental damage −10%, HP −(level×8) every 2 s',
+ 'Hip Swing: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +5% (Horned Club ma ten sam efekt)':'Hip Swing: non-elemental damage +10%, 100% chance: elemental damage +5% (Horned Club has the same effect)',
+ 'Tylko MID — zbiera moby (nie jest debuffem)':'MID only — gathers mobs (not a debuff)','Shadowfall: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +10%':'Shadowfall: non-elemental damage +10%, 100% chance: elemental damage +10%',
+ // historia
+ 'Baza graczy — kto jest naprawdę dobry':'Player database — who is really good','Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. Kliknij nagłówek, by sortować.':'Points from top 3 (1st = 3 pts, 2nd = 2, 3rd = 1). “% top 3” = share of raids where the player was in the top 3. Click a header to sort.',
+ 'Gracz':'Player','Maratony':'Marathons','Ocena':'Rating','Notatki':'Notes','Brak danych — ułóż skład i kliknij „Zapisz do historii”.':'No data yet — build a team and start a marathon.',
+ '+ Rajd (wpisz top 3)':'+ Raid (enter top 3)','Oceny i notatki (opcjonalnie)':'Ratings and notes (optional)','Usuń sesję':'Delete session','np. mocny DMG, zawalił L2':'e.g. strong DMG, messed up L2',
+ 'Po każdym rajdzie kliknij „+ Rajd” i wybierz top 3 z okienka obrażeń.':'After each raid click “+ Raid” and pick the top 3 from the damage window.',
+ // zapis
+ 'Zapis i import':'Save and import','Wszystko zapisuje się automatycznie w przeglądarce. Eksport pozwala przenieść dane na inny komputer albo zrobić kopię.':'Everything is saved automatically in the browser. Export lets you move the data to another computer or make a backup.',
+ 'Eksportuj do pliku':'Export to file','Przywróć domyślne SP, PSP i rajdy':'Restore default SPs, PSPs and raids',
+ // notatki rajdów
+ 'Uzupełnij z wiki (moduły na 70/40/20% HP).':'Fill in from the wiki (modules at 70/40/20% HP).','Drużyna 2–12 graczy.':'Party of 2–12 players.',
+ '20 os. = 4 teamy po 5 (Fire/Water/Shadow/Light). W teamie tylko SP jego żywiołu, najlepiej z debuffami (Crus, WK, Holy, Serk/DK, DG, DW, War, Des, DF). Debuffy SP zależą od składu — zawsze mobs 1.':
+  '20 players = 4 teams of 5 (Fire/Water/Shadow/Light). Each team only uses SPs of its element, ideally with debuffs (Crus, WK, Holy, Serk/DK, DG, DW, War, Des, DF). SP debuffs depend on the comp — always mobs 1.',
+ '15 os. 9 debufferów SP (WK×2, Crus/Ren×2, Holy×2, Des [L1+L2], Serk [L3+portal], DG) + 6 DD na SP światła. Każdy debuff 2×: room 1 + boss 2 albo boss 1 + boss 3.':
+  '15 players. 9 SP debuffers (WK×2, Crus/Ren×2, Holy×2, Des [L1+L2], Serk [L3+portal], DG) + 6 DDs on light SPs. Each debuff 2×: room 1 + boss 2 or boss 1 + boss 3.',
+ 'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — najlepiej SP wodne.':'Max 8 players. Fixed: Warrior (speed), Destroyer (lever), Berserker (BA). The rest DD — water SPs preferred.',
+ 'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — dowolne SP światła.':'Max 8 players. Fixed: Warrior (speed), Destroyer (lever), Berserker (BA). The rest DD — any light SP.',
+ 'mini 2 (drugi MA)':'mini 2 (second MA)','mini 1 / mini 2 / boss 2 (2× MA: jeden mini 1, drugi mini 2)':'mini 1 / mini 2 / boss 2 (2× MA: one mini 1, the other mini 2)',
+ // okienka
+ 'Najpierw ułóż skład.':'Build a team first.','Import':'Import','Połącz z moimi danymi':'Merge with my data','Zastąp wszystko':'Replace everything',
+ '— historia się sumuje (np. plik od kogoś z gildii), gracze łączeni po nicku, twoje rajdy i bazy zostają. Ten sam plik dwa razy nie podwoi wyników.':'— history is added up (e.g. a file from a guild mate), players are matched by nick, your raids and databases stay. Importing the same file twice won\'t double the results.',
+ '— np. przeniesienie na nowy komputer (twoje obecne dane znikną).':'— e.g. moving to a new computer (your current data will be lost).','Zastąpić wszystkie twoje dane danymi z pliku?':'Replace all your data with the data from the file?','Skopiowano!':'Copied!','Zaimportowano.':'Imported.','Zły plik.':'Invalid file.',
+ 'Maraton już trwa. Zakończyć go i zacząć nowy z tym składem?':'A marathon is already running. End it and start a new one with this team?',
+ 'Zakończyć maraton i podliczyć wyniki?':'End the marathon and count the results?','Usunąć wynik ostatniego rajdu?':'Delete the result of the last raid?',
+ 'Usunąć tę sesję z historii?':'Delete this session from history?','Przywrócić domyślną bazę SP, PSP i rajdy? Gracze zostaną.':'Restore the default SP, PSP and raid database? Players will be kept.',
+};
+// teksty z liczbami / nazwami
+const EN_RE=[
+ [/^\((\d+) obecnych \/ (\d+)\)$/,'($1 present / $2)'],[/^\(archiwum: (\d+)\)$/,'(archive: $1)'],[/^(.+) \((\d+) os\.\)$/,'$1 ($2 players)'],[/^Skład: (\d+) os\.$/,'Team: $1 players'],
+ [/^Dodano (\d+), zaktualizowano (\d+)\.$/,'Added $1, updated $2.'],[/^Dodano (\d+), uzupełniono (\d+)\.$/,'Added $1, updated $2.'],[/^(.+): nie rozpoznano (.+)$/,'$1: not recognised $2'],
+ [/^auto \((.+)\)$/,(m,a)=>'auto ('+trEN(a)+')'],
+ [/^Obecnych: (\d+), drużyn: (\d+), miejsc w składzie: (\d+)\.$/,'Present: $1, teams: $2, team slots: $3.'],[/^Puste miejsca w składzie: (\d+)\.$/,'Empty team slots: $1.'],
+ [/^Nieobsadzone zadania w fazach: (\d+) \(brak wolnej osoby z tym PSP\/SP — każdy ma tylko 1 PSP na rajd\)\.$/,'Unfilled phase tasks: $1 (nobody free with this PSP/SP — everyone has only 1 PSP per raid).'],
+ [/^Miejsca bez wymaganego PSP: (\d+)\.$/,'Slots without the required PSP: $1.'],[/^Drużyna (\d+)$/,'Team $1'],[/^Rezerwa \((\d+)\)$/,'Reserve ($1)'],
+ [/^Bez przypisanego SP \(nie trafią na pozycje wymagające SP\): (.+)\. Dodaj im SP w zakładce Gracze\.$/,'No SP assigned (they won\'t get positions that need an SP): $1. Add their SPs in the Players tab.'],
+ [/^🔴 Maraton trwa$/,'🔴 Marathon in progress'],[/^Rajd #(\d+)$/,'Raid #$1'],[/^✔ Zatwierdź rajd #(\d+)$/,'✔ Confirm raid #$1'],[/^Zapisane rajdy: (\d+)$/,'Saved raids: $1'],
+ [/^(\d+) rajdów$/,(m,n)=>n+(n==='1'?' raid':' raids')],[/^\((\d+) rajdów\)$/,(m,n)=>'('+n+(n==='1'?' raid)':' raids)')],[/^Pominięte linijki \(nie wyglądają na zapis\): (\d+)$/,'Skipped lines (not sign-ups): $1'],
+ [/^PSP: (.+)$/,(m,a)=>'PSP: '+trEN(a)],[/^Usunąć rajd (.+)\?$/,'Delete raid $1?'],[/^Usunąć SP (.+)\?$/,'Delete SP $1?'],[/^Usunąć PSP (.+)\?$/,'Delete PSP $1?'],[/^Usunąć (.+)\?$/,'Delete $1?'],
+ [/^Poprawiono (\d+) graczy\.$/,'Fixed $1 players.'],
+ [/^Połączono: (\d+) nowych maratonów(?: \((\d+) już było — pominięte\))?, (\d+) wspólnych graczy, (\d+) nowych \(w archiwum\)(?:, (\d+) nowych rajdów)?\.$/,(m,a,b,c,d,e)=>`Merged: ${a} new marathons${b?` (${b} already present — skipped)`:''}, ${c} shared players, ${d} new (in archive)${e?`, ${e} new raids`:''}.`],[/^Nie rozpoznano SP u: (.+) — dodaj SP z listy „\+ SP…”\.$/,'No SP recognised for: $1 — add the SP from the “+ SP…” list.'],
+ [/^Wyczyścić listę \((\d+) graczy\)\?$/,'Clear the list ($1 players)?'],
+ [/^Gracze trafią do archiwum: historia i ranking zostają, a gdy ktoś znowu się zapisze tym samym nickiem, wróci ze swoimi SP i PSP\.$/,'Players go to the archive: history and ranking are kept, and anyone signing up again with the same nick comes back with their SPs and PSPs.'],
+];
+function trEN(k){
+  if(k in EN_DICT)return EN_DICT[k];
+  for(const [re,rep] of EN_RE)if(re.test(k))return k.replace(re,rep);
+  // złożenia: "X ★", "SEKCJA: X", "a — b — c", "Mag/Łucznik", wiele linii (okienka)
+  if(k.includes('\n'))return k.split('\n').map(x=>x.trim()?trEN(x.trim()):x).join('\n');
+  let m;
+  if((m=k.match(/^(.+) ★$/)))return trEN(m[1])+' ★';
+  if((m=k.match(/^([A-ZĄĆĘŁŃÓŚŹŻ][A-ZĄĆĘŁŃÓŚŹŻ0-9 ]+): (.+)$/)))return trEN(m[1])+': '+trEN(m[2]);
+  if(k.includes(' — ')){const parts=k.split(' — ');
+    for(let i=1;i<parts.length;i++){const right=parts.slice(i).join(' — ');if(right in EN_DICT)return parts.slice(0,i).map(trEN).join(' — ')+' — '+EN_DICT[right];}  // opis z myślnikiem w środku
+    const t=parts.map(trEN);if(t.some((x,i)=>x!==parts[i]))return t.join(' — ');}
+  if(/^[^\s/]+(\/[^\s/]+)+$/.test(k)){const parts=k.split('/');const t=parts.map(trEN);if(t.some((x,i)=>x!==parts[i]))return t.join('/');}
+  return k;
+}
+let LANG=localStorage.getItem('nt-maraton-lang')||'pl';
+const T_ORIG=new WeakMap();
+function trText(v){if(LANG!=='en')return v;const k=v.replace(/\s+/g,' ').trim();if(!k)return v;const t=trEN(k);return t===k?v:v.replace(v.trim(),t);}
+function trNode(n){
+  if(n.nodeType===3){if(n.parentElement?.closest('script,style,textarea'))return;
+    if(!T_ORIG.has(n))T_ORIG.set(n,n.nodeValue);const o=T_ORIG.get(n),v=LANG==='en'?trText(o):o;if(n.nodeValue!==v)n.nodeValue=v;return;}
+  if(n.nodeType!==1)return;
+  for(const a of ['placeholder','title']){if(!n.hasAttribute(a))continue;const key='data-pl-'+a;
+    if(!n.hasAttribute(key))n.setAttribute(key,n.getAttribute(a));const o=n.getAttribute(key),v=LANG==='en'?trText(o):o;if(n.getAttribute(a)!==v)n.setAttribute(a,v);}
+  for(const c of n.childNodes)trNode(c);
+}
+const trObs=new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)trNode(n);});
+for(const fn of ['alert','confirm']){const orig=window[fn].bind(window);window[fn]=msg=>orig(LANG==='en'?trEN(String(msg)):msg);}
+function setLang(l){
+  LANG=l;localStorage.setItem('nt-maraton-lang',l);document.documentElement.lang=l;
+  document.title=LANG==='en'?'Raid Marathon – NosTale':'Maraton Raidów – NosTale';
+  document.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
+  trNode(document.body);
+}
+document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
+trObs.observe(document.body,{childList:true,subtree:true});
+setLang(LANG);
+</script>
+</body>
+</html>
