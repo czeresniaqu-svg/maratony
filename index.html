@@ -37,6 +37,12 @@ th{color:var(--mut);font-weight:500;font-size:12px;text-transform:uppercase}
 .empty{color:var(--bad);font-style:italic}
 .chk label{margin-right:10px;white-space:nowrap;display:inline-block}
 .scroll{overflow-x:auto}
+.dropzone{border:2px dashed #46506a;border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+.dropzone.over{border-color:var(--acc);background:#2a2618}
+.pastebox{min-width:260px;padding:12px 16px;border:1px solid #46506a;border-radius:8px;background:var(--pan2);caret-color:transparent;cursor:pointer;font-weight:700;outline:none;max-height:48px;overflow:hidden}
+.pastebox:empty::before{content:attr(data-ph)}
+.pastebox:focus{border-color:var(--acc);box-shadow:0 0 0 2px #e0a63a55}
+.pastebox:focus:empty::before{content:attr(data-ph2)}
 .pick{display:inline-flex;align-items:center;gap:6px;margin:4px;padding:8px 12px;border-radius:8px;border:1px solid #394055;background:var(--pan2);color:var(--tx);cursor:pointer;font:inherit;min-width:130px}
 .pick.on{border-color:var(--acc);background:#3a3220}.pick .medal{font-size:18px;width:22px}
 .livecard{border:2px solid var(--ok)}
@@ -74,8 +80,10 @@ tr.off td{opacity:.4}
     <h2>📷 Wklej screena wiadomości z gry</h2>
     <p class="mut small">Zrób screena wiadomości (np. <code>Nick: serk 1 2 3 jinn</code>) i wklej go tutaj <b>Ctrl+V</b>, przeciągnij plik albo wybierz go z dysku. Liczby <b>1 / 2 / 3 = PRI / SEC / ELE</b>, <b>all</b> = wszystkie PSP. Na screenie może być cały czat — program wybierze tylko zapisy na rajd, a resztę (spam) pominie.
     Przy pierwszym użyciu strona pobiera moduł do odczytu tekstu (potrzebny internet, ~10 MB, potem z pamięci przeglądarki).</p>
-    <div id="ocrDrop" tabindex="0" style="border:2px dashed #46506a;border-radius:10px;padding:18px;text-align:center;cursor:pointer">
-      <b>Kliknij tu i wciśnij Ctrl+V</b> <span class="mut">albo przeciągnij obrazek</span> &nbsp; <input type="file" id="ocrFile" accept="image/*">
+    <div id="ocrDrop" class="dropzone">
+      <div class="pastebox" contenteditable="true" spellcheck="false" data-ph="Kliknij tu i wciśnij Ctrl+V" data-ph2="✔ Teraz wciśnij Ctrl+V"></div>
+      <button class="g" data-clip>📋 Wklej ze schowka</button>
+      <span class="mut small">albo przeciągnij obrazek / wybierz plik:</span> <input type="file" id="ocrFile" accept="image/*">
     </div>
     <div class="row" style="margin-top:8px"><img id="ocrImg" style="max-width:100%;max-height:140px;display:none;border-radius:6px"></div>
     <div id="ocrStatus" class="small mut"></div>
@@ -154,8 +162,10 @@ tr.off td{opacity:.4}
     <p class="mut small">Po rajdzie zrób wycinek okienka z obrażeniami (Win+Shift+S) i wklej tutaj <b>Ctrl+V</b> albo przeciągnij plik. Program odczyta 3 nicki — sprawdź je i kliknij <b>Zapisz</b> (albo Enter).
     Wyniki trafiają do bazy graczy (zakładka Historia): liczą się do medali i punktów, ale nie zmieniają „% top 3”, bo nie wiadomo, kto jeszcze był w rajdzie.</p>
     <div class="row"><label>Rajd: <select id="t3raid"></select></label><label>Data: <input type="date" id="t3date"></label></div>
-    <div id="t3Drop" tabindex="0" style="border:2px dashed #46506a;border-radius:10px;padding:18px;text-align:center;cursor:pointer">
-      <b>Kliknij tu i wciśnij Ctrl+V</b> <span class="mut">albo przeciągnij obrazek</span> &nbsp; <input type="file" id="t3File" accept="image/*">
+    <div id="t3Drop" class="dropzone">
+      <div class="pastebox" contenteditable="true" spellcheck="false" data-ph="Kliknij tu i wciśnij Ctrl+V" data-ph2="✔ Teraz wciśnij Ctrl+V"></div>
+      <button class="g" data-clip>📋 Wklej ze schowka</button>
+      <span class="mut small">albo przeciągnij obrazek / wybierz plik:</span> <input type="file" id="t3File" accept="image/*">
     </div>
     <div class="row" style="margin-top:8px;align-items:flex-start"><img id="t3Img" style="max-width:320px;max-height:160px;display:none;border-radius:6px">
       <div><div id="t3Status" class="small mut"></div><pre id="t3Text" class="small mut" style="white-space:pre-wrap;margin:4px 0"></pre></div></div>
@@ -505,6 +515,39 @@ function fitsText(p){
   if(!names.length)return '<span style="color:var(--bad)">nic — brak pasującego SP/PSP</span>';
   return names.map(x=>`<span class="tag" style="white-space:nowrap;${x.good?'outline:1px solid var(--ok)':''}${x.fb?';opacity:.6':''}">${esc(x.nm)}${x.good?' ★':''}</span>`).join(' ');
 }
+/* ===================== POLE DO WKLEJANIA OBRAZKA ===================== */
+// Pole edycyjne (contenteditable), bo część przeglądarek wysyła "paste" tylko do pól, w których da się pisać.
+function setupPasteZone(zone,handler){
+  const box=zone.querySelector('.pastebox');
+  const clean=()=>{box.innerHTML='';};
+  box.addEventListener('beforeinput',e=>{if(e.inputType!=='insertFromPaste')e.preventDefault();});   // nie da się tu pisać
+  box.addEventListener('drop',e=>e.preventDefault());
+  box.addEventListener('paste',e=>{
+    e.stopPropagation();
+    const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
+    if(it){e.preventDefault();handler(it.getAsFile());return;}
+    const f=[...(e.clipboardData?.files||[])].find(x=>x.type.startsWith('image/'));
+    if(f){e.preventDefault();handler(f);return;}
+    // starsze przeglądarki: obrazek ląduje w polu jako <img> — odczytaj go stamtąd
+    setTimeout(()=>{const img=box.querySelector('img');clean();
+      if(img&&img.src)fetch(img.src).then(r=>r.blob()).then(b=>handler(new File([b],'wklejony.png',{type:b.type||'image/png'}))).catch(()=>alert('W schowku nie ma obrazka.'));
+      else alert('W schowku nie ma obrazka. Zrób wycinek (Win+Shift+S) i spróbuj jeszcze raz.');},50);
+  });
+  zone.querySelector('[data-clip]').addEventListener('click',async()=>{
+    try{
+      if(!navigator.clipboard?.read)throw new Error('brak');
+      for(const item of await navigator.clipboard.read()){
+        const t=item.types.find(x=>x.startsWith('image/'));
+        if(t){handler(new File([await item.getType(t)],'schowek.png',{type:t}));return;}
+      }
+      alert('W schowku nie ma obrazka. Zrób wycinek (Win+Shift+S) i spróbuj jeszcze raz.');
+    }catch(err){alert('Przeglądarka nie pozwoliła odczytać schowka. Kliknij w pole obok i wciśnij Ctrl+V albo przeciągnij plik.');}
+  });
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('over');const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/'));if(f)handler(f);});
+  zone.addEventListener('click',e=>{if(e.target===zone)box.focus();});
+}
 /* ===================== OCR (screen wiadomości) ===================== */
 const OCR_CDN={lib:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',worker:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
   core:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',lang:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1/4.0.0_best_int'};
@@ -573,8 +616,7 @@ $('#ocrPreview').addEventListener('click',e=>{
   save();renderPlayers();$('#ocrPreview').innerHTML=`<p class="small" style="color:var(--ok)">Dodano ${a}, uzupełniono ${u}.</p>`;
 });
 $('#ocrFile').onchange=e=>ocrFile(e.target.files[0]);
-$('#ocrDrop').addEventListener('dragover',e=>e.preventDefault());
-$('#ocrDrop').addEventListener('drop',e=>{e.preventDefault();ocrFile(e.dataTransfer.files[0]);});
+setupPasteZone($('#ocrDrop'),f=>ocrFile(f));
 document.addEventListener('paste',e=>{
   const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));if(!it)return;
   if($('#players').classList.contains('on')){e.preventDefault();ocrFile(it.getAsFile());}
@@ -641,7 +683,7 @@ function t3Save(){
   const se=t3Session();se.runs.push({top:ids,dmg:t3Dmg.slice()});ids.forEach(id=>{if(id&&!se.team.includes(id))se.team.push(id);});
   save();document.querySelectorAll('[data-t3]').forEach(i=>i.value='');t3Dmg=[null,null,null];$('#t3Hint').innerHTML='';
   $('#t3Img').style.display='none';$('#t3Text').textContent='';$('#t3Status').innerHTML='<span style="color:var(--ok)">Zapisano ✔ — wklej kolejny screen.</span>';
-  renderTop3();$('#t3Drop').focus();
+  renderTop3();$('#t3Drop .pastebox').focus();
 }
 function renderTop3(){
   if(!$('#t3raid').options.length||$('#t3raid').options.length!==S.raids.length){const cur=$('#t3raid').value||S.t3raid||S.curRaid;
@@ -660,8 +702,7 @@ $('#t3Form').addEventListener('input',t3HintUpd);
 $('#t3Form').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.t3!==undefined){e.preventDefault();t3Save();}});
 $('#t3raid').onchange=e=>{S.t3raid=e.target.value;save();};
 $('#t3File').onchange=e=>{t3Ocr(e.target.files[0]);e.target.value='';};
-$('#t3Drop').addEventListener('dragover',e=>e.preventDefault());
-$('#t3Drop').addEventListener('drop',e=>{e.preventDefault();t3Ocr(e.dataTransfer.files[0]);});
+setupPasteZone($('#t3Drop'),f=>t3Ocr(f));
 $('#t3List').addEventListener('click',e=>{if(!e.target.hasAttribute('data-t3del'))return;
   const se=S.history.find(x=>x.id===e.target.closest('[data-t3se]').dataset.t3se);if(!confirm('Usunąć ten wynik?'))return;
   se.runs.splice(+e.target.closest('tr').dataset.t3i,1);if(!se.runs.length)S.history=S.history.filter(x=>x!==se);save();renderTop3();});
@@ -1353,7 +1394,9 @@ const EN_DICT={
  'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — dowolne SP światła.':'Max 8 players. Fixed: Warrior (speed), Destroyer (lever), Berserker (BA). The rest DD — any light SP.',
  'mini 2 (drugi MA)':'mini 2 (second MA)','mini 1 / mini 2 / boss 2 (2× MA: jeden mini 1, drugi mini 2)':'mini 1 / mini 2 / boss 2 (2× MA: one mini 1, the other mini 2)',
  // okienka
- 'Najpierw ułóż skład.':'Build a team first.','Top 3':'Top 3','📷 Top 3 z rajdu (gdy nie hostujesz)':'📷 Raid top 3 (when you are not hosting)',
+ 'Najpierw ułóż skład.':'Build a team first.','📋 Wklej ze schowka':'📋 Paste from clipboard','✔ Teraz wciśnij Ctrl+V':'✔ Now press Ctrl+V','albo przeciągnij obrazek / wybierz plik:':'or drag an image / pick a file:',
+ 'W schowku nie ma obrazka.':'There is no image in the clipboard.','W schowku nie ma obrazka. Zrób wycinek (Win+Shift+S) i spróbuj jeszcze raz.':'There is no image in the clipboard. Take a snip (Win+Shift+S) and try again.',
+ 'Przeglądarka nie pozwoliła odczytać schowka. Kliknij w pole obok i wciśnij Ctrl+V albo przeciągnij plik.':'The browser did not allow reading the clipboard. Click the box next to it and press Ctrl+V, or drag the file in.','Top 3':'Top 3','📷 Top 3 z rajdu (gdy nie hostujesz)':'📷 Raid top 3 (when you are not hosting)',
  'Po rajdzie zrób wycinek okienka z obrażeniami (Win+Shift+S) i wklej tutaj':'After the raid take a snip of the damage window (Win+Shift+S) and paste it here',
  'albo przeciągnij plik. Program odczyta 3 nicki — sprawdź je i kliknij':'or drag the file in. The tool reads 3 nicknames — check them and click','(albo Enter).':'(or press Enter).',
  'Wyniki trafiają do bazy graczy (zakładka Historia): liczą się do medali i punktów, ale nie zmieniają „% top 3”, bo nie wiadomo, kto jeszcze był w rajdzie.':'Results go to the player database (History tab): they count towards medals and points but don\'t change “% top 3”, since we don\'t know who else was in the raid.',
@@ -1406,7 +1449,7 @@ function trNode(n){
   if(n.nodeType===3){if(n.parentElement?.closest('script,style,textarea'))return;
     if(!T_ORIG.has(n))T_ORIG.set(n,n.nodeValue);const o=T_ORIG.get(n),v=LANG==='en'?trText(o):o;if(n.nodeValue!==v)n.nodeValue=v;return;}
   if(n.nodeType!==1)return;
-  for(const a of ['placeholder','title']){if(!n.hasAttribute(a))continue;const key='data-pl-'+a;
+  for(const a of ['placeholder','title','data-ph','data-ph2']){if(!n.hasAttribute(a))continue;const key='data-pl-'+a;
     if(!n.hasAttribute(key))n.setAttribute(key,n.getAttribute(a));const o=n.getAttribute(key),v=LANG==='en'?trText(o):o;if(n.getAttribute(a)!==v)n.setAttribute(a,v);}
   for(const c of n.childNodes)trNode(c);
 }
