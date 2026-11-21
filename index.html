@@ -578,7 +578,7 @@ async function ocrFile(file){
   $('#ocrStatus').textContent='Wczytuję moduł OCR…';$('#ocrPreview').innerHTML='';
   try{
     const img=await new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=url;});
-    const w=await getOcr();$('#ocrStatus').textContent='Odczytuję tekst…';
+    const w=await getOcr();await w.setParameters({tessedit_pageseg_mode:'3'});$('#ocrStatus').textContent='Odczytuję tekst…';
     const {data}=await w.recognize(prepImage(img));
     $('#ocrText').value=data.text.trim();$('#ocrText').dataset.force='[]';$('#ocrText').style.display='';$('#ocrBtns').style.display='';
     $('#ocrStatus').textContent='Gotowe. Sprawdź tekst poniżej (popraw literówki, jeśli są) i zaznacz, kogo dodać.';
@@ -648,12 +648,48 @@ function parseTop3(text){
 let t3Dmg=[null,null,null];
 function t3Fill(rows){
   t3Dmg=[null,null,null];
-  document.querySelectorAll('[data-t3]').forEach((inp,i)=>{const r=rows[i];const m=r&&matchName(r.name);inp.value=r?(m?m.name:r.name):'';t3Dmg[i]=r?.dmg??null;});
+  document.querySelectorAll('[data-t3]').forEach((inp,i)=>{const r=rows[i];const m=r&&r.name&&matchName(r.name);inp.value=r&&r.name?(m?m.name:r.name):'';t3Dmg[i]=r?.dmg??null;});
   t3HintUpd();document.querySelector('[data-t3="0"]').focus();
 }
 function t3HintUpd(){
   $('#t3Hint').innerHTML=[...document.querySelectorAll('[data-t3]')].map((inp,i)=>{const v=inp.value.trim();if(!v)return '';
-    const m=matchName(v);return `<span class="tag">${['🥇','🥈','🥉'][i]} ${esc(v)}${m?(m.name!==v?' → '+esc(m.name):' ✔'):' <span style="color:var(--acc)">(nowy gracz)</span>'}${t3Dmg[i]?' · '+t3Dmg[i].toLocaleString('pl-PL'):''}</span>`;}).join(' ');
+    const m=matchName(v);return `<span class="tag">${['🥇','🥈','🥉'][i]} ${esc(v)}${m?(m.name!==v?' → '+esc(m.name):' ✔'):' <span style="color:var(--acc)">(nowy gracz)</span>'}${t3Dmg[i]?' · '+(typeof t3Dmg[i]==='number'?t3Dmg[i].toLocaleString('pl-PL'):esc(t3Dmg[i])):''}</span>`;}).join(' ');
+}
+// Damage Meter: biały tekst na żółto-zielonych paskach -> kanał "min" (biel jasna, kolorowe paski ciemne), odwrócony, w skali szarości
+function prepMeter(img,sc){
+  const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
+  const d=x.getImageData(0,0,c.width,c.height),a=d.data;
+  for(let i=0;i<a.length;i+=4){const v=255-Math.min(a[i],a[i+1],a[i+2]);a[i]=a[i+1]=a[i+2]=v;}
+  x.putImageData(d,0,0);return c;
+}
+function otsuCanvas(src){
+  const c=document.createElement('canvas');c.width=src.width;c.height=src.height;const x=c.getContext('2d');x.drawImage(src,0,0);
+  const d=x.getImageData(0,0,c.width,c.height),a=d.data,n=a.length/4,h=new Array(256).fill(0);for(let i=0;i<n;i++)h[a[i*4]]++;
+  let tot=0;for(let i=0;i<256;i++)tot+=i*h[i];let sB=0,wB=0,best=0,th=128;
+  for(let t=0;t<256;t++){wB+=h[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*h[t];const mB=sB/wB,mF=(tot-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>best){best=v;th=t;}}
+  for(let i=0;i<n;i++){const v=a[i*4]>th?255:0;a[i*4]=a[i*4+1]=a[i*4+2]=v;}x.putImageData(d,0,0);return c;
+}
+// pasy tekstu (wiersze okienka) z projekcji poziomej -> osobne wycinki do czytania jako jedna linia
+function rowBands(c){
+  const W=c.width,H=c.height,d=c.getContext('2d').getImageData(0,0,W,H).data,out=[];let st=-1;
+  for(let y=0;y<H;y++){let k=0;for(let x=0;x<W;x++)if(d[(y*W+x)*4]<110)k++;const on=k/W>0.01&&k/W<0.6;
+    if(on&&st<0)st=y;if((!on||y===H-1)&&st>=0){if(y-st>H*0.03){const pad=Math.round((y-st)*0.3),y0=Math.max(0,st-pad),hh=Math.min(H-y0,y-st+2*pad);
+      const cc=document.createElement('canvas');cc.width=W;cc.height=hh;cc.getContext('2d').drawImage(c,0,y0,W,hh,0,0,W,hh);out.push(cc);}st=-1;}}
+  return out.slice(0,8);
+}
+// wiersze "1. Sina 22.1M (14.2%)" -> {rank, name, dmg}; tylko miejsca 1-3 (okienko pokazuje też własną pozycję, np. 7.)
+function parseMeter(text){
+  const out=[];
+  const re=/(?:^|[\s|([{'"‘’“”])([1-9])\s*[.,:]?\s*([0-9A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ_][\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{1,15})(?:\s+(\d{1,3}[.,]\d)\s*([MKmk]))?/g;
+  let m;
+  while((m=re.exec(text))){
+    const rank=+m[1];if(rank<1||rank>3)continue;
+    let name=m[2].replace(/^5(?=[a-z])/,'S').replace(/^0(?=[a-z])/,'O').replace(/^1(?=[a-z])/,'l');   // OCR: 5ina -> Sina
+    if(!/^[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(name)||T3_SKIP.test(name))continue;   // nick zaczyna się od litery ("34M" to nie nick)
+    out.push({rank,name,dmg:m[3]?m[3].replace(',','.')+m[4].toUpperCase():null});
+  }
+  return out;
 }
 async function t3Ocr(file){
   if(!file||!file.type.startsWith('image/'))return;
@@ -661,9 +697,26 @@ async function t3Ocr(file){
   $('#t3Status').textContent='Wczytuję moduł OCR…';$('#t3Text').textContent='';
   try{const img=await new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=url;});
     const w=await getOcr();$('#t3Status').textContent='Odczytuję tekst…';
-    const {data}=await w.recognize(prepImage(img));$('#t3Text').textContent=data.text.trim();
-    const rows=parseTop3(data.text);t3Fill(rows);
-    $('#t3Status').textContent=rows.length?'Sprawdź nicki i kliknij „Zapisz” (Enter).':'Nie odczytałem nicków — wpisz je ręcznie.';
+    // kilka przebiegów (2 powiększenia × 2 tryby czytania); dla każdego miejsca wygrywa najczęstszy nick, znani gracze mają pierwszeństwo
+    const scales=[...new Set([Math.min(4,2400/img.width),Math.min(6,3200/img.width)].map(x=>Math.max(1,Math.round(x*10)/10)))];
+    const votes=[{},{},{}],dmg=[null,null,null],texts=[];
+    const add=t=>{texts.push(t);for(const r of parseMeter(t)){const v=votes[r.rank-1];v[r.name]=(v[r.name]||0)+1;if(r.dmg&&!dmg[r.rank-1])dmg[r.rank-1]=r.dmg;}};
+    const enough=()=>votes.every(v=>Object.values(v).some(n=>n>=2));
+    for(const sc of scales){const g=prepMeter(img,sc),b=otsuCanvas(g);
+      for(const [cv,psm] of [[g,'6'],[g,'11'],[b,'6'],[b,'11']]){await w.setParameters({tessedit_pageseg_mode:psm});add((await w.recognize(cv)).data.text);}
+      if(enough())break;
+      await w.setParameters({tessedit_pageseg_mode:'7'});const lines=[];for(const row of rowBands(g))lines.push((await w.recognize(row)).data.text.trim());add(lines.join('\n'));
+      if(enough())break;}
+    await w.setParameters({tessedit_pageseg_mode:'3'});
+    const pick=v=>{const c=Object.entries(v);if(!c.length)return null;
+      // ten sam gracz zapisany różnie przez OCR (np. Kyoden / Skyoden) -> sumuj głosy po dopasowaniu do znanych graczy
+      const agg={};for(const [n,cnt] of c){const m=matchName(n);const key=m?m.name:n;agg[key]=(agg[key]||0)+cnt+(m?0.5:0);}
+      return Object.entries(agg).sort((a,b)=>b[1]-a[1])[0][0];};
+    let rows=votes.map((v,i)=>{const n=pick(v);return n?{name:n,dmg:dmg[i]}:null;});
+    $('#t3Text').textContent=texts.sort((a,b)=>parseMeter(b).length-parseMeter(a).length)[0].trim();
+    t3Fill(rows.map(r=>r||{name:'',dmg:null}));
+    const n=rows.filter(Boolean).length;
+    $('#t3Status').textContent=n===3?'Sprawdź nicki i kliknij „Zapisz” (Enter).':n?'Odczytałem tylko część nicków — uzupełnij brakujące i kliknij „Zapisz”.':'Nie odczytałem nicków — wpisz je ręcznie.';
   }catch(e){$('#t3Status').innerHTML='<span style="color:var(--bad)">'+esc(e.message||e)+'</span> — wpisz nicki ręcznie.';}
 }
 function t3Session(){
@@ -693,7 +746,7 @@ function renderTop3(){
   const obs=(S.history||[]).filter(x=>x.observed);
   $('#t3Count').textContent=`(${obs.reduce((a,x)=>a+x.runs.length,0)})`;
   $('#t3List').innerHTML=obs.length?obs.map(se=>`<div data-t3se="${se.id}" style="margin-bottom:10px"><b>${esc(se.date)} — ${esc(se.raid)}</b> <span class="mut small">(${se.runs.length} rajdów)</span>
-    <table style="width:auto">${se.runs.map((r,i)=>`<tr data-t3i="${i}"><td class="mut">#${i+1}</td>${r.top.map((id,k)=>`<td>${['🥇','🥈','🥉'][k]} ${id?esc(pname(id)):'—'}${r.dmg?.[k]?` <span class="mut small">${r.dmg[k].toLocaleString('pl-PL')}</span>`:''}</td>`).join('')}<td><button class="x" data-t3del>×</button></td></tr>`).join('')}</table></div>`).join('')
+    <table style="width:auto">${se.runs.map((r,i)=>`<tr data-t3i="${i}"><td class="mut">#${i+1}</td>${r.top.map((id,k)=>`<td>${['🥇','🥈','🥉'][k]} ${id?esc(pname(id)):'—'}${r.dmg?.[k]?` <span class="mut small">${typeof r.dmg[k]==='number'?r.dmg[k].toLocaleString('pl-PL'):esc(r.dmg[k])}</span>`:''}</td>`).join('')}<td><button class="x" data-t3del>×</button></td></tr>`).join('')}</table></div>`).join('')
     :'<p class="mut small">Brak — wklej pierwszy screen powyżej.</p>';
 }
 $('#t3Save').onclick=t3Save;
@@ -1401,7 +1454,7 @@ const EN_DICT={
  'albo przeciągnij plik. Program odczyta 3 nicki — sprawdź je i kliknij':'or drag the file in. The tool reads 3 nicknames — check them and click','(albo Enter).':'(or press Enter).',
  'Wyniki trafiają do bazy graczy (zakładka Historia): liczą się do medali i punktów, ale nie zmieniają „% top 3”, bo nie wiadomo, kto jeszcze był w rajdzie.':'Results go to the player database (History tab): they count towards medals and points but don\'t change “% top 3”, since we don\'t know who else was in the raid.',
  'Data:':'Date:','✔ Zapisz':'✔ Save','Wyczyść':'Clear','Zapisane wyniki':'Saved results','Brak — wklej pierwszy screen powyżej.':'Nothing yet — paste the first screenshot above.',
- '(nowy gracz)':'(new player)','Sprawdź nicki i kliknij „Zapisz” (Enter).':'Check the nicknames and click “Save” (Enter).','Nie odczytałem nicków — wpisz je ręcznie.':'Could not read nicknames — type them in.',
+ '(nowy gracz)':'(new player)','Sprawdź nicki i kliknij „Zapisz” (Enter).':'Check the nicknames and click “Save” (Enter).','Odczytałem tylko część nicków — uzupełnij brakujące i kliknij „Zapisz”.':'Only some nicknames were read — fill in the missing ones and click “Save”.','Nie odczytałem nicków — wpisz je ręcznie.':'Could not read nicknames — type them in.',
  '— wpisz nicki ręcznie.':'— type the nicknames in.','Zapisano ✔ — wklej kolejny screen.':'Saved ✔ — paste the next screenshot.','Wpisz co najmniej jeden nick.':'Enter at least one nickname.',
  'Ten sam gracz jest wpisany dwa razy.':'The same player is entered twice.','Usunąć ten wynik?':'Delete this result?','🔭 Cudze':'🔭 Others\'','🔭 obserwowany':'🔭 observed','Wklej':'Paste',
  '„🔭 Cudze” = miejsca w top 3 z rajdów, których nie hostowałeś (zakładka Top 3). Kliknij nagłówek, by sortować.':'“🔭 Others\'” = top-3 places from raids you did not host (Top 3 tab). Click a header to sort.','Import':'Import','Połącz z moimi danymi':'Merge with my data','Zastąp wszystko':'Replace everything',
