@@ -52,6 +52,7 @@ tr.off td{opacity:.4}
     <button data-t="assign">Skład</button>
     <button data-t="raids">Rajdy</button>
     <button data-t="sps">Baza SP / PSP</button>
+    <button data-t="top3">Top 3</button>
     <button data-t="history">Historia</button>
     <button data-t="data">Zapis / Import</button>
   </nav>
@@ -141,10 +142,31 @@ tr.off td{opacity:.4}
 <section id="history" class="tab">
   <div class="card">
     <h2>Baza graczy — kto jest naprawdę dobry</h2>
-    <p class="mut small">Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. Kliknij nagłówek, by sortować.</p>
+    <p class="mut small">Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. „🔭 Cudze” = miejsca w top 3 z rajdów, których nie hostowałeś (zakładka Top 3). Kliknij nagłówek, by sortować.</p>
     <div class="scroll"><table id="rank"></table></div>
   </div>
   <div id="sessions"></div>
+</section>
+
+<section id="top3" class="tab">
+  <div class="card">
+    <h2>📷 Top 3 z rajdu (gdy nie hostujesz)</h2>
+    <p class="mut small">Po rajdzie zrób wycinek okienka z obrażeniami (Win+Shift+S) i wklej tutaj <b>Ctrl+V</b> albo przeciągnij plik. Program odczyta 3 nicki — sprawdź je i kliknij <b>Zapisz</b> (albo Enter).
+    Wyniki trafiają do bazy graczy (zakładka Historia): liczą się do medali i punktów, ale nie zmieniają „% top 3”, bo nie wiadomo, kto jeszcze był w rajdzie.</p>
+    <div class="row"><label>Rajd: <select id="t3raid"></select></label><label>Data: <input type="date" id="t3date"></label></div>
+    <div id="t3Drop" tabindex="0" style="border:2px dashed #46506a;border-radius:10px;padding:18px;text-align:center;cursor:pointer">
+      <b>Kliknij tu i wciśnij Ctrl+V</b> <span class="mut">albo przeciągnij obrazek</span> &nbsp; <input type="file" id="t3File" accept="image/*">
+    </div>
+    <div class="row" style="margin-top:8px;align-items:flex-start"><img id="t3Img" style="max-width:320px;max-height:160px;display:none;border-radius:6px">
+      <div><div id="t3Status" class="small mut"></div><pre id="t3Text" class="small mut" style="white-space:pre-wrap;margin:4px 0"></pre></div></div>
+    <datalist id="t3names"></datalist>
+    <div class="row" id="t3Form">
+      <label>🥇 <input data-t3="0" list="t3names" style="width:150px"></label><label>🥈 <input data-t3="1" list="t3names" style="width:150px"></label><label>🥉 <input data-t3="2" list="t3names" style="width:150px"></label>
+      <button class="b" id="t3Save">✔ Zapisz</button><button class="g" id="t3Clear">Wyczyść</button>
+    </div>
+    <div id="t3Hint" class="small"></div>
+  </div>
+  <div class="card"><h2>Zapisane wyniki <span class="mut small" id="t3Count"></span></h2><div id="t3List"></div></div>
 </section>
 
 <section id="data" class="tab">
@@ -554,10 +576,95 @@ $('#ocrFile').onchange=e=>ocrFile(e.target.files[0]);
 $('#ocrDrop').addEventListener('dragover',e=>e.preventDefault());
 $('#ocrDrop').addEventListener('drop',e=>{e.preventDefault();ocrFile(e.dataTransfer.files[0]);});
 document.addEventListener('paste',e=>{
-  if(!$('#players').classList.contains('on'))return;
-  const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
-  if(it){e.preventDefault();ocrFile(it.getAsFile());}
+  const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));if(!it)return;
+  if($('#players').classList.contains('on')){e.preventDefault();ocrFile(it.getAsFile());}
+  else if($('#top3').classList.contains('on')){e.preventDefault();t3Ocr(it.getAsFile());}
 });
+/* ===================== TOP 3 (rajdy, których nie hostujesz) ===================== */
+const T3_SKIP=/^(top|dmg|damage|obrazenia|obrażenia|ranking|rank|miejsce|place|nick|gracz|player|total|razem|lp)$/i;
+// dopasowanie nicku do znanych graczy (też z archiwum): dokładnie, I/l/1, potem drobne literówki OCR
+function matchName(n){
+  if(!n)return null;const ex=findPlayer(n);if(ex)return ex;
+  const ocrKey=x=>nameKey(x).replace(/rn/g,'m').replace(/ri/g,'n').replace(/cl/g,'d').replace(/vv/g,'w').replace(/[^a-z0-9ąćęłńóśźż]/g,'');  // typowe pomyłki OCR
+  const k=ocrKey(n);let best=null,bd=99;
+  for(const p of S.players){const d=lev(k,ocrKey(p.name));if(d<bd){bd=d;best=p;}}
+  return bd<=(k.length>=7?2:k.length>=4?1:0)?best:null;
+}
+function parseTop3(text){
+  const out=[];
+  for(let line of text.split('\n')){
+    line=line.replace(/^\s*[#№]?\s*[1-3]\s*[.):\-]\s*/,'').trim();          // "1." "#2" "3)"
+    if(!line)continue;
+    const nums=(line.match(/\d[\d\s.,']*\d|\d/g)||[]).map(x=>+x.replace(/[^\d]/g,'')).filter(x=>x>=1000);
+    const tok=line.split(/\s+/).map(t=>t.replace(/^[^\wąćęłńóśźż]+|[^\wąćęłńóśźż]+$/gi,'')).filter(t=>t.length>=2&&/[a-ząćęłńóśźż]/i.test(t)&&!T3_SKIP.test(t));
+    if(!tok.length)continue;
+    out.push({name:tok[0],dmg:nums.length?Math.max(...nums):null});
+    if(out.length===3)break;
+  }
+  return out;
+}
+let t3Dmg=[null,null,null];
+function t3Fill(rows){
+  t3Dmg=[null,null,null];
+  document.querySelectorAll('[data-t3]').forEach((inp,i)=>{const r=rows[i];const m=r&&matchName(r.name);inp.value=r?(m?m.name:r.name):'';t3Dmg[i]=r?.dmg??null;});
+  t3HintUpd();document.querySelector('[data-t3="0"]').focus();
+}
+function t3HintUpd(){
+  $('#t3Hint').innerHTML=[...document.querySelectorAll('[data-t3]')].map((inp,i)=>{const v=inp.value.trim();if(!v)return '';
+    const m=matchName(v);return `<span class="tag">${['🥇','🥈','🥉'][i]} ${esc(v)}${m?(m.name!==v?' → '+esc(m.name):' ✔'):' <span style="color:var(--acc)">(nowy gracz)</span>'}${t3Dmg[i]?' · '+t3Dmg[i].toLocaleString('pl-PL'):''}</span>`;}).join(' ');
+}
+async function t3Ocr(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  const url=URL.createObjectURL(file);$('#t3Img').src=url;$('#t3Img').style.display='';
+  $('#t3Status').textContent='Wczytuję moduł OCR…';$('#t3Text').textContent='';
+  try{const img=await new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=url;});
+    const w=await getOcr();$('#t3Status').textContent='Odczytuję tekst…';
+    const {data}=await w.recognize(prepImage(img));$('#t3Text').textContent=data.text.trim();
+    const rows=parseTop3(data.text);t3Fill(rows);
+    $('#t3Status').textContent=rows.length?'Sprawdź nicki i kliknij „Zapisz” (Enter).':'Nie odczytałem nicków — wpisz je ręcznie.';
+  }catch(e){$('#t3Status').innerHTML='<span style="color:var(--bad)">'+esc(e.message||e)+'</span> — wpisz nicki ręcznie.';}
+}
+function t3Session(){
+  const raid=S.raids.find(r=>r.id===$('#t3raid').value),date=$('#t3date').value||new Date().toISOString().slice(0,10);
+  let se=S.history.find(x=>x.observed&&x.date===date&&x.raidId===raid?.id);
+  if(!se){se={id:uid(),date,raid:raid?.name||'?',raidId:raid?.id,observed:true,team:[],runs:[],ratings:{},notes:{}};S.history.unshift(se);
+    S.history.sort((a,b)=>(b.date||'').localeCompare(a.date||''));}
+  return se;
+}
+function t3Save(){
+  const names=[...document.querySelectorAll('[data-t3]')].map(i=>i.value.trim());
+  if(!names.some(Boolean))return alert('Wpisz co najmniej jeden nick.');
+  if(new Set(names.filter(Boolean).map(n=>n.toLowerCase())).size!==names.filter(Boolean).length)return alert('Ten sam gracz jest wpisany dwa razy.');
+  const ids=names.map(n=>{if(!n)return '';let p=matchName(n);
+    if(!p){p={id:uid(),name:n,sps:[],el:'',psp:[],tags:[],active:false,archived:true};S.players.push(p);}   // nowy gracz -> archiwum (nie zaśmieca listy)
+    return p.id;});
+  const se=t3Session();se.runs.push({top:ids,dmg:t3Dmg.slice()});ids.forEach(id=>{if(id&&!se.team.includes(id))se.team.push(id);});
+  save();document.querySelectorAll('[data-t3]').forEach(i=>i.value='');t3Dmg=[null,null,null];$('#t3Hint').innerHTML='';
+  $('#t3Img').style.display='none';$('#t3Text').textContent='';$('#t3Status').innerHTML='<span style="color:var(--ok)">Zapisano ✔ — wklej kolejny screen.</span>';
+  renderTop3();$('#t3Drop').focus();
+}
+function renderTop3(){
+  if(!$('#t3raid').options.length||$('#t3raid').options.length!==S.raids.length){const cur=$('#t3raid').value||S.t3raid||S.curRaid;
+    $('#t3raid').innerHTML=S.raids.map(r=>`<option value="${r.id}" ${r.id===cur?'selected':''}>${esc(r.name)}</option>`).join('');}
+  if(!$('#t3date').value)$('#t3date').value=new Date().toISOString().slice(0,10);
+  $('#t3names').innerHTML=S.players.map(p=>`<option value="${esc(p.name)}">`).join('');
+  const obs=(S.history||[]).filter(x=>x.observed);
+  $('#t3Count').textContent=`(${obs.reduce((a,x)=>a+x.runs.length,0)})`;
+  $('#t3List').innerHTML=obs.length?obs.map(se=>`<div data-t3se="${se.id}" style="margin-bottom:10px"><b>${esc(se.date)} — ${esc(se.raid)}</b> <span class="mut small">(${se.runs.length} rajdów)</span>
+    <table style="width:auto">${se.runs.map((r,i)=>`<tr data-t3i="${i}"><td class="mut">#${i+1}</td>${r.top.map((id,k)=>`<td>${['🥇','🥈','🥉'][k]} ${id?esc(pname(id)):'—'}${r.dmg?.[k]?` <span class="mut small">${r.dmg[k].toLocaleString('pl-PL')}</span>`:''}</td>`).join('')}<td><button class="x" data-t3del>×</button></td></tr>`).join('')}</table></div>`).join('')
+    :'<p class="mut small">Brak — wklej pierwszy screen powyżej.</p>';
+}
+$('#t3Save').onclick=t3Save;
+$('#t3Clear').onclick=()=>{document.querySelectorAll('[data-t3]').forEach(i=>i.value='');t3Dmg=[null,null,null];t3HintUpd();};
+$('#t3Form').addEventListener('input',t3HintUpd);
+$('#t3Form').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.t3!==undefined){e.preventDefault();t3Save();}});
+$('#t3raid').onchange=e=>{S.t3raid=e.target.value;save();};
+$('#t3File').onchange=e=>{t3Ocr(e.target.files[0]);e.target.value='';};
+$('#t3Drop').addEventListener('dragover',e=>e.preventDefault());
+$('#t3Drop').addEventListener('drop',e=>{e.preventDefault();t3Ocr(e.dataTransfer.files[0]);});
+$('#t3List').addEventListener('click',e=>{if(!e.target.hasAttribute('data-t3del'))return;
+  const se=S.history.find(x=>x.id===e.target.closest('[data-t3se]').dataset.t3se);if(!confirm('Usunąć ten wynik?'))return;
+  se.runs.splice(+e.target.closest('tr').dataset.t3i,1);if(!se.runs.length)S.history=S.history.filter(x=>x!==se);save();renderTop3();});
 function playerClass(p){const c=[...new Set(p.sps.map(id=>spById(id)?.cls).filter(Boolean))];return c.join('/')||'—';}
 function playerEl(p){return p.el||spById(p.sps[0])?.el||'none';}
 function spOptions(sel){
@@ -646,13 +753,14 @@ function eligibleSpCore(p,role){
 /* ===================== HISTORIA ===================== */
 let HIST=null;
 function histStats(){
-  const st={};const g=id=>st[id]??={runs:0,t1:0,t2:0,t3:0,pts:0,rs:[],notes:[],sessions:0};
+  const st={};const g=id=>st[id]??={runs:0,t1:0,t2:0,t3:0,pts:0,rs:[],notes:[],sessions:0,htop:0,obs:0};
   for(const se of S.history||[]){
-    for(const id of se.team){const x=g(id);x.sessions++;x.runs+=se.runs.length;
-      if(se.ratings?.[id])x.rs.push(+se.ratings[id]);if(se.notes?.[id])x.notes.push(se.notes[id]);}
-    for(const r of se.runs)r.top.forEach((id,i)=>{if(!id)return;const x=g(id);x['t'+(i+1)]++;x.pts+=3-i;});
+    const obs=!!se.observed;   // rajd obserwowany (nie hostowany): znamy tylko top 3
+    if(!obs)for(const id of se.team){const x=g(id);x.sessions++;x.runs+=se.runs.length;}
+    for(const id of se.team){const x=g(id);if(se.ratings?.[id])x.rs.push(+se.ratings[id]);if(se.notes?.[id])x.notes.push(se.notes[id]);}
+    for(const r of se.runs)r.top.forEach((id,i)=>{if(!id)return;const x=g(id);x['t'+(i+1)]++;x.pts+=3-i;obs?x.obs++:x.htop++;});
   }
-  for(const x of Object.values(st)){x.top=x.t1+x.t2+x.t3;x.share=x.runs?x.top/x.runs:0;x.avg=x.rs.length?x.rs.reduce((a,b)=>a+b,0)/x.rs.length:null;}
+  for(const x of Object.values(st)){x.top=x.t1+x.t2+x.t3;x.share=x.runs?x.htop/x.runs:0;x.avg=x.rs.length?x.rs.reduce((a,b)=>a+b,0)/x.rs.length:null;}
   return st;
 }
 function histBonus(p){const x=HIST?.[p.id];if(!x)return 0;return x.share*4+(x.avg!=null?(x.avg-3)*0.8:0);}
@@ -1080,6 +1188,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   b.classList.add('on');$('#'+b.dataset.t).classList.add('on');
   if(b.dataset.t==='raids')renderRaidEdit();
   if(b.dataset.t==='history')renderHistory();
+  if(b.dataset.t==='top3')renderTop3();
 });
 function renderPsp(){
   $('#pspInfo').innerHTML=`<h3>PSP (karty partnera)</h3>
@@ -1107,17 +1216,17 @@ let rankSort='pts';
 const pname=id=>S.players.find(p=>p.id===id)?.name||'(usunięty)';
 function renderHistory(){
   const st=histStats();
-  const cols=[['name','Gracz'],['sessions','Maratony'],['runs','Rajdy'],['t1','🥇'],['t2','🥈'],['t3','🥉'],['pts','Punkty'],['share','% top 3'],['avg','Ocena'],['notes','Notatki']];
+  const cols=[['name','Gracz'],['sessions','Maratony'],['runs','Rajdy'],['t1','🥇'],['t2','🥈'],['t3','🥉'],['pts','Punkty'],['share','% top 3'],['obs','🔭 Cudze'],['avg','Ocena'],['notes','Notatki']];
   const rows=Object.entries(st).map(([id,x])=>({id,name:pname(id),...x}));
   rows.sort((a,b)=>rankSort==='name'?a.name.localeCompare(b.name):((b[rankSort]??-1)-(a[rankSort]??-1))||b.pts-a.pts);
   $('#rank').innerHTML=`<thead><tr>${cols.map(([k,l])=>`<th data-sort="${k}" style="cursor:pointer">${l}${rankSort===k?' ▾':''}</th>`).join('')}</tr></thead><tbody>`+
     (rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${r.sessions}</td><td>${r.runs}</td><td>${r.t1}</td><td>${r.t2}</td><td>${r.t3}</td><td><b>${r.pts}</b></td>
-      <td>${r.runs?Math.round(r.share*100)+'%':'—'}</td><td>${r.avg!=null?r.avg.toFixed(1):'—'}</td><td class="small mut">${esc(r.notes.slice(-3).join(' · '))}</td></tr>`).join('')
-     ||'<tr><td colspan="10" class="mut">Brak danych — ułóż skład i kliknij „Zapisz do historii”.</td></tr>')+'</tbody>';
+      <td>${r.runs?Math.round(r.share*100)+'%':'—'}</td><td>${r.obs||'—'}</td><td>${r.avg!=null?r.avg.toFixed(1):'—'}</td><td class="small mut">${esc(r.notes.slice(-3).join(' · '))}</td></tr>`).join('')
+     ||'<tr><td colspan="11" class="mut">Brak danych — ułóż skład i kliknij „Zapisz do historii”.</td></tr>')+'</tbody>';
   $('#sessions').innerHTML=(S.history||[]).map(se=>{
     const opts=sel=>'<option value="">—</option>'+se.team.map(id=>`<option value="${id}" ${id===sel?'selected':''}>${esc(pname(id))}</option>`).join('');
     return `<div class="card" data-se="${se.id}">
-      <h2 style="display:flex;justify-content:space-between"><span>${esc(se.date)} — ${esc(se.raid)}${se.teamNo?' — Drużyna '+se.teamNo:''} <span class="mut small">(${se.runs.length} rajdów)</span></span>
+      <h2 style="display:flex;justify-content:space-between"><span>${esc(se.date)} — ${esc(se.raid)}${se.teamNo?' — Drużyna '+se.teamNo:''}${se.observed?' — 🔭 obserwowany':''} <span class="mut small">(${se.runs.length} rajdów)</span></span>
         <button class="x" data-sedel title="Usuń sesję">🗑</button></h2>
       <div class="row"><input type="date" data-sf="date" value="${esc(se.date)}"><button class="b" data-run>+ Rajd (wpisz top 3)</button></div>
       ${se.runs.length?`<table style="width:auto"><thead><tr><th>#</th><th>🥇 1.</th><th>🥈 2.</th><th>🥉 3.</th><th></th></tr></thead><tbody>
@@ -1227,7 +1336,7 @@ const EN_DICT={
  'Hip Swing: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +5% (Horned Club ma ten sam efekt)':'Hip Swing: non-elemental damage +10%, 100% chance: elemental damage +5% (Horned Club has the same effect)',
  'Tylko MID — zbiera moby (nie jest debuffem)':'MID only — gathers mobs (not a debuff)','Shadowfall: obrażenia bez żywiołu +10%, 100% szansy: obrażenia z żywiołów +10%':'Shadowfall: non-elemental damage +10%, 100% chance: elemental damage +10%',
  // historia
- 'Baza graczy — kto jest naprawdę dobry':'Player database — who is really good','Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. Kliknij nagłówek, by sortować.':'Points from top 3 (1st = 3 pts, 2nd = 2, 3rd = 1). “% top 3” = share of raids where the player was in the top 3. Click a header to sort.',
+ 'Baza graczy — kto jest naprawdę dobry':'Player database — who is really good','Punkty z top 3 (1. miejsce = 3 pkt, 2. = 2, 3. = 1). „% top 3” = w ilu rajdach gracz był w top 3. „🔭 Cudze” = miejsca w top 3 z rajdów, których nie hostowałeś (zakładka Top 3). Kliknij nagłówek, by sortować.':'Points from top 3 (1st = 3 pts, 2nd = 2, 3rd = 1). “% top 3” = share of hosted raids where the player was in the top 3. “🔭 Others\'” = top-3 places from raids you did not host (Top 3 tab). Click a header to sort.',
  'Gracz':'Player','Maratony':'Marathons','Ocena':'Rating','Notatki':'Notes','Brak danych — ułóż skład i kliknij „Zapisz do historii”.':'No data yet — build a team and start a marathon.',
  '+ Rajd (wpisz top 3)':'+ Raid (enter top 3)','Oceny i notatki (opcjonalnie)':'Ratings and notes (optional)','Usuń sesję':'Delete session','np. mocny DMG, zawalił L2':'e.g. strong DMG, messed up L2',
  'Po każdym rajdzie kliknij „+ Rajd” i wybierz top 3 z okienka obrażeń.':'After each raid click “+ Raid” and pick the top 3 from the damage window.',
@@ -1244,7 +1353,15 @@ const EN_DICT={
  'Max 8 os. Stałe: Warrior (speed), Destroyer (dźwignia), Berserker (BA). Reszta DD — dowolne SP światła.':'Max 8 players. Fixed: Warrior (speed), Destroyer (lever), Berserker (BA). The rest DD — any light SP.',
  'mini 2 (drugi MA)':'mini 2 (second MA)','mini 1 / mini 2 / boss 2 (2× MA: jeden mini 1, drugi mini 2)':'mini 1 / mini 2 / boss 2 (2× MA: one mini 1, the other mini 2)',
  // okienka
- 'Najpierw ułóż skład.':'Build a team first.','Import':'Import','Połącz z moimi danymi':'Merge with my data','Zastąp wszystko':'Replace everything',
+ 'Najpierw ułóż skład.':'Build a team first.','Top 3':'Top 3','📷 Top 3 z rajdu (gdy nie hostujesz)':'📷 Raid top 3 (when you are not hosting)',
+ 'Po rajdzie zrób wycinek okienka z obrażeniami (Win+Shift+S) i wklej tutaj':'After the raid take a snip of the damage window (Win+Shift+S) and paste it here',
+ 'albo przeciągnij plik. Program odczyta 3 nicki — sprawdź je i kliknij':'or drag the file in. The tool reads 3 nicknames — check them and click','(albo Enter).':'(or press Enter).',
+ 'Wyniki trafiają do bazy graczy (zakładka Historia): liczą się do medali i punktów, ale nie zmieniają „% top 3”, bo nie wiadomo, kto jeszcze był w rajdzie.':'Results go to the player database (History tab): they count towards medals and points but don\'t change “% top 3”, since we don\'t know who else was in the raid.',
+ 'Data:':'Date:','✔ Zapisz':'✔ Save','Wyczyść':'Clear','Zapisane wyniki':'Saved results','Brak — wklej pierwszy screen powyżej.':'Nothing yet — paste the first screenshot above.',
+ '(nowy gracz)':'(new player)','Sprawdź nicki i kliknij „Zapisz” (Enter).':'Check the nicknames and click “Save” (Enter).','Nie odczytałem nicków — wpisz je ręcznie.':'Could not read nicknames — type them in.',
+ '— wpisz nicki ręcznie.':'— type the nicknames in.','Zapisano ✔ — wklej kolejny screen.':'Saved ✔ — paste the next screenshot.','Wpisz co najmniej jeden nick.':'Enter at least one nickname.',
+ 'Ten sam gracz jest wpisany dwa razy.':'The same player is entered twice.','Usunąć ten wynik?':'Delete this result?','🔭 Cudze':'🔭 Others\'','🔭 obserwowany':'🔭 observed','Wklej':'Paste',
+ '„🔭 Cudze” = miejsca w top 3 z rajdów, których nie hostowałeś (zakładka Top 3). Kliknij nagłówek, by sortować.':'“🔭 Others\'” = top-3 places from raids you did not host (Top 3 tab). Click a header to sort.','Import':'Import','Połącz z moimi danymi':'Merge with my data','Zastąp wszystko':'Replace everything',
  '— historia się sumuje (np. plik od kogoś z gildii), gracze łączeni po nicku, twoje rajdy i bazy zostają. Ten sam plik dwa razy nie podwoi wyników.':'— history is added up (e.g. a file from a guild mate), players are matched by nick, your raids and databases stay. Importing the same file twice won\'t double the results.',
  '— np. przeniesienie na nowy komputer (twoje obecne dane znikną).':'— e.g. moving to a new computer (your current data will be lost).','Zastąpić wszystkie twoje dane danymi z pliku?':'Replace all your data with the data from the file?','Skopiowano!':'Copied!','Zaimportowano.':'Imported.','Zły plik.':'Invalid file.',
  'Maraton już trwa. Zakończyć go i zacząć nowy z tym składem?':'A marathon is already running. End it and start a new one with this team?',
